@@ -102,7 +102,11 @@ def smooth_earth_diffraction(
     h_e__meter: list[float],
     Z_g: complex,
 ) -> float:
-    """Smooth earth diffraction loss using the Vogler 3-radii method. [Vogler 1964]"""
+    """Smooth earth diffraction loss using the Vogler 3-radii method. [Vogler 1964]
+
+    Preconditions: h_e__meter[i] > 0; (d__meter / a_e__meter - theta_los) > 0.
+    Both are guaranteed when called from longley_rice with d >= d_ML.
+    """
     theta_nlos = d__meter / a_e__meter - theta_los
     d_ML__meter = d_hzn__meter[0] + d_hzn__meter[1]
 
@@ -184,6 +188,8 @@ def troposcatter_loss(
 
     Returns (A_scat__db, h0_updated).
     Returns (1001.0, h0) when path geometry makes troposcatter undefined.
+    Precondition: h_e__meter[0] > 0 (division by h_e__meter[0] on line ~194).
+    Guaranteed by public API validation (h_tx__meter >= 0.5).
     """
     wn = f__mhz / WN_DENOM
 

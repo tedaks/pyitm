@@ -1,13 +1,7 @@
 # tests/test_models.py
-import numpy as np
 from itm.models import (
     Climate,
-    Polarization,
-    MDVar,
-    PropMode,
-    SitingCriteria,
     TerrainProfile,
-    IntermediateValues,
     PropagationResult,
 )
 
@@ -19,7 +13,7 @@ def test_climate_values():
 
 def test_terrain_profile_from_pfl():
     pfl = [3.0, 100.0, 10.0, 20.0, 15.0, 25.0, 12.0]
-    # np=3, resolution=100m, elevations=[10,20,15,25,12] (np+2 = 5 values)
+    # np=3, resolution=100m, elevations=[10,20,15,25] (np+1 = 4 values; trailing 12.0 ignored)
     tp = TerrainProfile.from_pfl(pfl)
     assert tp.resolution == 100.0
     assert len(tp.elevations) == 4  # np+1 = 4 points

@@ -1,12 +1,15 @@
 # tests/test_variability.py
 import math
 import numpy as np
+from itm._constants import WARN__EXTREME_VARIABILITIES
+from itm.models import Climate, MDVar
 from itm.variability import (
     iccdf,
     terrain_roughness,
     sigma_h_function,
     linear_least_squares_fit,
     curve,
+    variability,
 )
 
 
@@ -55,11 +58,6 @@ def test_linear_least_squares_fit_ramp():
 def test_curve_zero_distance():
     # At d_e=0, the factor d_e^2/(1+d_e^2) -> 0, so curve -> 0
     assert math.isclose(curve(1.0, 2.0, 100e3, 50e3, 30e3, 0.0), 0.0, abs_tol=1e-10)
-
-
-from itm.variability import variability
-from itm.models import Climate, MDVar
-from itm._constants import WARN__EXTREME_VARIABILITIES
 
 
 def test_variability_returns_float_and_warnings():

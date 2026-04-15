@@ -1,19 +1,10 @@
 # tests/test_propagation.py
 import math
-import cmath
-import pytest
 from itm.propagation import (
     free_space_loss,
     fresnel_integral,
-    height_function,
     h0_curve,
     h0_function,
-    f_function,
-    knife_edge_diffraction,
-    smooth_earth_diffraction,
-    troposcatter_loss,
-    line_of_sight_loss,
-    diffraction_loss,
     initialize_point_to_point,
 )
 
@@ -45,6 +36,8 @@ def test_h0_function_clamps_eta():
     result_one = h0_function(1.0, 1.0)
     # With eta_s clamped to 1 in h0_function, both should be equal
     assert math.isclose(result_low, result_one, rel_tol=1e-9)
+    # eta_s > 5 should be clamped to 5 -> same result as eta_s=5.0 (q=0, no interpolation)
+    assert math.isclose(h0_function(1.0, 6.0), h0_function(1.0, 5.0), rel_tol=1e-9)
 
 
 def test_initialize_point_to_point_horizontal():

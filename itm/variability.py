@@ -19,6 +19,7 @@ def iccdf(q: float) -> float:
     Input q is a probability in (0, 1).
     Returns Q^-1(q): positive for q < 0.5, negative for q > 0.5.
     Error |epsilon(p)| < 4.5e-4.
+    Precondition: 0 < q < 1; q=0 or q=1 raises ValueError (log(0)).
     """
     C_0, C_1, C_2 = 2.515516, 0.802853, 0.010328
     D_1, D_2, D_3 = 1.432788, 0.189269, 0.001308

@@ -54,7 +54,13 @@ class TerrainProfile:
         pfl[1]   = resolution in meters
         pfl[2+]  = elevation values (np+1 values at pfl[2]..pfl[np+2])
         """
+        if len(pfl) < 3:
+            raise ValueError(
+                f"PFL array must have at least 3 elements (np, resolution, one elevation), got {len(pfl)}"
+            )
         np_ = int(pfl[0])
+        if np_ < 1:
+            raise ValueError(f"PFL interval count must be >= 1, got {np_}")
         resolution = float(pfl[1])
         elevations = np.array(pfl[2 : np_ + 3], dtype=float)
         return cls(elevations=elevations, resolution=resolution)

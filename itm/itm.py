@@ -121,9 +121,14 @@ def predict_p2p(
         int(mdvar),
     )
 
+    if len(terrain.elevations) < 2:
+        raise ValueError(
+            f"terrain must have at least 2 elevation points, got {len(terrain.elevations)}"
+        )
+
     np_ = len(terrain.elevations) - 1
     p10 = int(0.1 * np_)
-    h_sys__meter = sum(terrain.elevations[p10 : np_ - p10 + 1]) / (np_ - 2 * p10 + 1)
+    h_sys__meter = float(terrain.elevations[p10 : np_ - p10 + 1].mean())
 
     Z_g, gamma_e, N_s = initialize_point_to_point(
         f__mhz, h_sys__meter, N_0, int(pol), epsilon, sigma
