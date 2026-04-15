@@ -55,3 +55,43 @@ def test_linear_least_squares_fit_ramp():
 def test_curve_zero_distance():
     # At d_e=0, the factor d_e^2/(1+d_e^2) -> 0, so curve -> 0
     assert math.isclose(curve(1.0, 2.0, 100e3, 50e3, 30e3, 0.0), 0.0, abs_tol=1e-10)
+
+
+from itm.variability import variability
+from itm.models import Climate, MDVar
+from itm._constants import WARN__EXTREME_VARIABILITIES
+
+
+def test_variability_returns_float_and_warnings():
+    # Sanity check: result is a float, warnings is an int
+    result, warns = variability(
+        time=50.0,
+        location=50.0,
+        situation=50.0,
+        h_e__meter=[10.0, 10.0],
+        delta_h__meter=0.0,
+        f__mhz=100.0,
+        d__meter=50e3,
+        A_ref__db=80.0,
+        climate=Climate.CONTINENTAL_TEMPERATE,
+        mdvar=MDVar.BROADCAST,
+    )
+    assert isinstance(result, float)
+    assert isinstance(warns, int)
+
+
+def test_variability_extreme_warns():
+    # time=0.09 → z_T ≈ 3.12, just above limit → should trigger WARN__EXTREME_VARIABILITIES
+    _, warns = variability(
+        time=0.09,
+        location=50.0,
+        situation=50.0,
+        h_e__meter=[10.0, 10.0],
+        delta_h__meter=0.0,
+        f__mhz=100.0,
+        d__meter=50e3,
+        A_ref__db=80.0,
+        climate=Climate.CONTINENTAL_TEMPERATE,
+        mdvar=MDVar.BROADCAST,
+    )
+    assert warns & WARN__EXTREME_VARIABILITIES
