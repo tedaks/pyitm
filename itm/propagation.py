@@ -2,7 +2,6 @@
 from __future__ import annotations
 import math
 import cmath
-import numpy as np
 from itm._constants import (
     PI,
     SQRT2,

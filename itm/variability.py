@@ -3,6 +3,15 @@ from __future__ import annotations
 import math
 import numpy as np
 
+from itm._constants import (
+    a_9000__meter,
+    WN_DENOM,
+    THIRD,
+    D_SCALE__meter,
+    WARN__EXTREME_VARIABILITIES,
+)
+from itm.models import Climate
+
 
 def iccdf(q: float) -> float:
     """Inverse complementary CDF (Abramowitz & Stegun 26.2.23).
@@ -50,7 +59,6 @@ def linear_least_squares_fit(
     """
     np_ = len(elevations) - 1  # number of intervals
 
-    # fdim(x, y) = max(x - y, 0)
     i_start = int(max(d_start / resolution - 0.0, 0.0))
     i_end = np_ - int(max(np_ - d_end / resolution, 0.0))
 
@@ -93,16 +101,6 @@ def curve(
     return (c1 + c2 / (1.0 + ((d_e__meter - x2) / x3) ** 2)) * (r * r) / (1.0 + r * r)
 
 
-from itm._constants import (
-    a_9000__meter,
-    WN_DENOM,
-    THIRD,
-    D_SCALE__meter,
-    WARN__EXTREME_VARIABILITIES,
-)
-from itm.models import Climate, MDVar
-
-
 def variability(
     time: float,
     location: float,
@@ -120,7 +118,6 @@ def variability(
     time, location, situation are percentages 0 < x < 100.
     Returns (F_db, warnings_bits).
     """
-    # Asymptotic curve-fit parameters per climate [TN101, Fig 10.13 → TN101v2 III.69 & III.70]
     all_year = [
         [-9.67, -0.62, 1.26, -9.21, -0.62, -0.39, 3.15],
         [12.7, 9.19, 15.5, 9.05, 9.19, 2.86, 857.9],
@@ -151,11 +148,10 @@ def variability(
     z_L = iccdf(location / 100.0)
     z_S = iccdf(situation / 100.0)
 
-    ci = int(climate) - 1  # 0-based climate index
+    ci = int(climate) - 1
 
     wn = f__mhz / WN_DENOM
 
-    # Effective distance [Algorithm, Eqn 5.3]
     d_ex__meter = (
         math.sqrt(2 * a_9000__meter * h_e__meter[0])
         + math.sqrt(2 * a_9000__meter * h_e__meter[1])
@@ -170,14 +166,12 @@ def variability(
     warnings = 0
     mdvar_internal = mdvar
 
-    # +20 modifier: eliminate direct situation variability
     plus20 = mdvar_internal >= 20
     if plus20:
         mdvar_internal -= 20
 
     sigma_S = 0.0 if plus20 else 5.0 + 3.0 * math.exp(-d_e__meter / D_SCALE__meter)
 
-    # +10 modifier: eliminate location variability
     plus10 = mdvar_internal >= 10
     if plus10:
         mdvar_internal -= 10
@@ -199,19 +193,16 @@ def variability(
         z_L = z_S
     elif mdvar_internal == MOBILE:
         z_L = z_T
-    # else BROADCAST: no change
 
     if math.fabs(z_T) > 3.10 or math.fabs(z_L) > 3.10 or math.fabs(z_S) > 3.10:
         warnings |= WARN__EXTREME_VARIABILITIES
 
-    # Location variability
     sigma_L = 0.0
     if not plus10:
         delta_h_d__meter = terrain_roughness(d__meter, delta_h__meter)
         sigma_L = 10.0 * wn * delta_h_d__meter / (wn * delta_h_d__meter + 13.0)
     Y_L = sigma_L * z_L
 
-    # Time variability
     q = math.log(0.133 * wn)
     g_minus = bfm1[ci] + bfm2[ci] / (pow(bfm3[ci] * q, 2) + 1.0)
     g_plus = bfp1[ci] + bfp2[ci] / (pow(bfp3[ci] * q, 2) + 1.0)
@@ -245,13 +236,12 @@ def variability(
     elif mdvar_internal == MOBILE:
         Y_R = math.sqrt(sigma_T**2 + sigma_L**2) * z_T
         Y_S = math.sqrt(Y_S_temp) * z_S
-    else:  # BROADCAST
+    else:
         Y_R = Y_T + Y_L
         Y_S = math.sqrt(Y_S_temp) * z_S
 
     result = A_ref__db - V_med__db - Y_R - Y_S
 
-    # [Algorithm, Eqn 52] — compress large negative losses
     if result < 0.0:
         result = result * (29.0 - result) / (29.0 - 10.0 * result)
 

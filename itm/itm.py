@@ -1,6 +1,5 @@
 # itm/itm.py
 from __future__ import annotations
-import math
 from itm._constants import (
     WARN__TX_TERMINAL_HEIGHT,
     WARN__RX_TERMINAL_HEIGHT,
@@ -11,8 +10,6 @@ from itm._constants import (
 from itm.models import (
     Climate,
     Polarization,
-    MDVar,
-    PropMode,
     SitingCriteria,
     TerrainProfile,
     IntermediateValues,
@@ -125,8 +122,6 @@ def predict_p2p(
     )
 
     np_ = len(terrain.elevations) - 1
-    d_total__meter = np_ * terrain.resolution
-
     p10 = int(0.1 * np_)
     h_sys__meter = sum(terrain.elevations[p10 : np_ - p10 + 1]) / (np_ - 2 * p10 + 1)
 
