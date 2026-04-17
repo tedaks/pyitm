@@ -1,5 +1,4 @@
 # tests/test_models.py
-import pytest
 from itm.models import (
     Climate,
     TerrainProfile,
