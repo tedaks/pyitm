@@ -6,7 +6,7 @@ radiowave propagation loss at frequencies 20 MHz – 20 GHz.
 ## Installation
 
 ```bash
-pip install itm
+pip install -e .
 ```
 
 ## Quick Start
