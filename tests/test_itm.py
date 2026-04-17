@@ -9,6 +9,7 @@ from itm._constants import (
     WARN__PATH_DISTANCE_TOO_BIG_1,
     WARN__PATH_DISTANCE_TOO_SMALL_2,
     WARN__SURFACE_REFRACTIVITY,
+    WARN__EXTREME_VARIABILITIES,
 )
 from itm.models import (
     Climate,
@@ -234,6 +235,136 @@ def test_predict_area_returns_result():
         time=87.0,
         location=50.0,
         situation=50.0,
+    )
+    assert isinstance(result, PropagationResult)
+    assert result.A__db > 0
+
+
+def test_warn_extreme_variabilities():
+    terrain = make_flat_terrain()
+    result = predict_p2p(
+        h_tx__meter=10.0,
+        h_rx__meter=10.0,
+        terrain=terrain,
+        climate=Climate.CONTINENTAL_TEMPERATE,
+        N_0=301.0,
+        f__mhz=230.0,
+        pol=Polarization.VERTICAL,
+        epsilon=15.0,
+        sigma=0.008,
+        mdvar=3,
+        time=0.09,
+        location=50.0,
+        situation=50.0,
+    )
+    assert result.warnings & WARN__EXTREME_VARIABILITIES
+
+
+@pytest.mark.parametrize("mdvar", [0, 1, 2, 3])
+def test_mdvar_all_modes(mdvar):
+    terrain = make_flat_terrain()
+    result = predict_p2p(
+        h_tx__meter=10.0,
+        h_rx__meter=10.0,
+        terrain=terrain,
+        climate=Climate.CONTINENTAL_TEMPERATE,
+        N_0=301.0,
+        f__mhz=230.0,
+        pol=Polarization.VERTICAL,
+        epsilon=15.0,
+        sigma=0.008,
+        mdvar=mdvar,
+        time=50.0,
+        location=50.0,
+        situation=50.0,
+    )
+    assert isinstance(result, PropagationResult)
+    assert result.A__db > 0
+
+
+@pytest.mark.parametrize("mdvar", [10, 11, 12, 13])
+def test_mdvar_plus10_modifier(mdvar):
+    terrain = make_flat_terrain()
+    result = predict_p2p(
+        h_tx__meter=10.0,
+        h_rx__meter=10.0,
+        terrain=terrain,
+        climate=Climate.CONTINENTAL_TEMPERATE,
+        N_0=301.0,
+        f__mhz=230.0,
+        pol=Polarization.VERTICAL,
+        epsilon=15.0,
+        sigma=0.008,
+        mdvar=mdvar,
+        time=50.0,
+        location=50.0,
+        situation=50.0,
+    )
+    assert isinstance(result, PropagationResult)
+    assert result.A__db > 0
+
+
+@pytest.mark.parametrize("mdvar", [20, 21, 22, 23])
+def test_mdvar_plus20_modifier(mdvar):
+    terrain = make_flat_terrain()
+    result = predict_p2p(
+        h_tx__meter=10.0,
+        h_rx__meter=10.0,
+        terrain=terrain,
+        climate=Climate.CONTINENTAL_TEMPERATE,
+        N_0=301.0,
+        f__mhz=230.0,
+        pol=Polarization.VERTICAL,
+        epsilon=15.0,
+        sigma=0.008,
+        mdvar=mdvar,
+        time=50.0,
+        location=50.0,
+        situation=50.0,
+    )
+    assert isinstance(result, PropagationResult)
+    assert result.A__db > 0
+
+
+def test_predict_p2p_cr_returns_result():
+    from itm import predict_p2p_cr
+
+    terrain = make_flat_terrain()
+    result = predict_p2p_cr(
+        h_tx__meter=10.0,
+        h_rx__meter=1.0,
+        terrain=terrain,
+        climate=Climate.CONTINENTAL_TEMPERATE,
+        N_0=301.0,
+        f__mhz=230.0,
+        pol=Polarization.VERTICAL,
+        epsilon=15.0,
+        sigma=0.008,
+        confidence=50.0,
+        reliability=50.0,
+    )
+    assert isinstance(result, PropagationResult)
+    assert result.A__db > 0
+
+
+def test_predict_area_cr_returns_result():
+    from itm import predict_area_cr
+
+    result = predict_area_cr(
+        h_tx__meter=10.0,
+        h_rx__meter=1.0,
+        tx_siting=SitingCriteria.RANDOM,
+        rx_siting=SitingCriteria.RANDOM,
+        d__km=16.0,
+        delta_h__meter=0.0,
+        climate=Climate.CONTINENTAL_TEMPERATE,
+        N_0=301.0,
+        f__mhz=230.0,
+        pol=Polarization.HORIZONTAL,
+        epsilon=15.0,
+        sigma=0.008,
+        confidence=50.0,
+        reliability=50.0,
     )
     assert isinstance(result, PropagationResult)
     assert result.A__db > 0

@@ -1,7 +1,7 @@
 # itm/models.py
 from __future__ import annotations
 from dataclasses import dataclass
-from enum import IntEnum
+from enum import IntFlag, IntEnum
 import numpy as np
 
 
@@ -39,12 +39,31 @@ class SitingCriteria(IntEnum):
     VERY_CAREFUL = 2
 
 
-@dataclass
+class Warnings(IntFlag):
+    TX_TERMINAL_HEIGHT = 0x0001
+    RX_TERMINAL_HEIGHT = 0x0002
+    FREQUENCY = 0x0004
+    PATH_DISTANCE_TOO_BIG_1 = 0x0008
+    PATH_DISTANCE_TOO_BIG_2 = 0x0010
+    PATH_DISTANCE_TOO_SMALL_1 = 0x0020
+    PATH_DISTANCE_TOO_SMALL_2 = 0x0040
+    TX_HORIZON_ANGLE = 0x0080
+    RX_HORIZON_ANGLE = 0x0100
+    TX_HORIZON_DISTANCE_1 = 0x0200
+    RX_HORIZON_DISTANCE_1 = 0x0400
+    TX_HORIZON_DISTANCE_2 = 0x0800
+    RX_HORIZON_DISTANCE_2 = 0x1000
+    EXTREME_VARIABILITIES = 0x2000
+    SURFACE_REFRACTIVITY = 0x4000
+    NONE = 0
+
+
+@dataclass(frozen=True)
 class TerrainProfile:
     """Terrain elevation profile in PFL format."""
 
-    elevations: np.ndarray  # elevation above sea level, meters; shape (np+1,)
-    resolution: float  # point spacing, meters
+    elevations: np.ndarray
+    resolution: float
 
     @classmethod
     def from_pfl(cls, pfl: list[float]) -> TerrainProfile:
@@ -61,26 +80,35 @@ class TerrainProfile:
         np_ = int(pfl[0])
         if np_ < 1:
             raise ValueError(f"PFL interval count must be >= 1, got {np_}")
+        available = len(pfl) - 2
+        if available < 2:
+            raise ValueError(
+                f"pfl has only {available} elevation values, need at least 2 for 1 interval"
+            )
         resolution = float(pfl[1])
-        elevations = np.array(pfl[2 : np_ + 3], dtype=float)
+        if available >= np_ + 1:
+            elevations = np.asarray(pfl[2 : np_ + 3], dtype=float)
+        else:
+            actual_np = min(np_, available - 1)
+            elevations = np.asarray(pfl[2 : 2 + actual_np + 1], dtype=float)
         return cls(elevations=elevations, resolution=resolution)
 
 
-@dataclass
+@dataclass(frozen=True)
 class IntermediateValues:
-    theta_hzn: tuple[float, float]  # terminal horizon angles, radians
-    d_hzn__meter: tuple[float, float]  # terminal horizon distances, meters
-    h_e__meter: tuple[float, float]  # effective terminal heights, meters
-    N_s: float  # surface refractivity, N-Units
-    delta_h__meter: float  # terrain irregularity parameter, meters
-    A_ref__db: float  # reference attenuation, dB
-    A_fs__db: float  # free-space basic transmission loss, dB
-    d__km: float  # path distance, km
-    mode: PropMode  # propagation mode
+    theta_hzn: tuple[float, float]
+    d_hzn__meter: tuple[float, float]
+    h_e__meter: tuple[float, float]
+    N_s: float
+    delta_h__meter: float
+    A_ref__db: float
+    A_fs__db: float
+    d__km: float
+    mode: PropMode
 
 
-@dataclass
+@dataclass(frozen=True)
 class PropagationResult:
-    A__db: float  # basic transmission loss, dB
-    warnings: int  # warning bitmask
+    A__db: float
+    warnings: Warnings
     intermediate: IntermediateValues | None = None

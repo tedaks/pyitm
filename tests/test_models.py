@@ -1,4 +1,5 @@
 # tests/test_models.py
+import pytest
 from itm.models import (
     Climate,
     TerrainProfile,
@@ -24,3 +25,17 @@ def test_terrain_profile_from_pfl():
 def test_propagation_result_defaults():
     r = PropagationResult(A__db=142.5, warnings=0)
     assert r.intermediate is None
+
+
+def test_terrain_profile_from_pfl_truncation():
+    pfl = [10, 100.0, 1.0, 2.0]
+    tp = TerrainProfile.from_pfl(pfl)
+    assert tp.resolution == 100.0
+    assert len(tp.elevations) == 2
+
+
+def test_terrain_profile_from_pfl_trailing_garbage():
+    pfl = [3.0, 100.0, 10.0, 20.0, 15.0, 25.0, 12.0, 99.0, 88.0]
+    tp = TerrainProfile.from_pfl(pfl)
+    assert len(tp.elevations) == 4
+    assert tp.elevations[3] == 25.0

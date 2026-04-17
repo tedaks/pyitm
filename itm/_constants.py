@@ -1,4 +1,5 @@
 # itm/_constants.py
+from __future__ import annotations
 import math
 
 PI = 3.1415926535897932384

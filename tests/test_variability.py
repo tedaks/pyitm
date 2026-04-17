@@ -1,5 +1,6 @@
 # tests/test_variability.py
 import math
+import pytest
 import numpy as np
 from itm._constants import WARN__EXTREME_VARIABILITIES
 from itm.models import Climate, MDVar
@@ -11,6 +12,21 @@ from itm.variability import (
     curve,
     variability,
 )
+
+
+def test_iccdf_symmetry():
+    assert math.isclose(iccdf(0.1), -iccdf(0.9), rel_tol=1e-6)
+
+
+def test_iccdf_midpoint():
+    assert math.isclose(iccdf(0.5), 0.0, abs_tol=1e-6)
+
+
+def test_iccdf_domain_error():
+    with pytest.raises(ValueError, match="iccdf requires"):
+        iccdf(0.0)
+    with pytest.raises(ValueError, match="iccdf requires"):
+        iccdf(1.0)
 
 
 def test_iccdf_known_values():

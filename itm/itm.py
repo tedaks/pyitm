@@ -293,3 +293,87 @@ def predict_area(
         )
 
     return PropagationResult(A__db=A__db, warnings=warnings, intermediate=inter)
+
+
+def predict_p2p_cr(
+    h_tx__meter: float,
+    h_rx__meter: float,
+    terrain: TerrainProfile,
+    climate: Climate,
+    N_0: float,
+    f__mhz: float,
+    pol: Polarization,
+    epsilon: float,
+    sigma: float,
+    confidence: float,
+    reliability: float,
+    *,
+    return_intermediate: bool = False,
+) -> PropagationResult:
+    """Point-to-point propagation with confidence/reliability (CR) mode.
+
+    confidence, reliability: percentages in (0, 100).
+    Internally maps to time=reliability, location=confidence, situation=confidence.
+    Uses mdvar=1 (ACCIDENTAL) per CR→TLS mapping.
+    """
+    return predict_p2p(
+        h_tx__meter=h_tx__meter,
+        h_rx__meter=h_rx__meter,
+        terrain=terrain,
+        climate=climate,
+        N_0=N_0,
+        f__mhz=f__mhz,
+        pol=pol,
+        epsilon=epsilon,
+        sigma=sigma,
+        mdvar=1,
+        time=reliability,
+        location=confidence,
+        situation=confidence,
+        return_intermediate=return_intermediate,
+    )
+
+
+def predict_area_cr(
+    h_tx__meter: float,
+    h_rx__meter: float,
+    tx_siting: SitingCriteria,
+    rx_siting: SitingCriteria,
+    d__km: float,
+    delta_h__meter: float,
+    climate: Climate,
+    N_0: float,
+    f__mhz: float,
+    pol: Polarization,
+    epsilon: float,
+    sigma: float,
+    confidence: float,
+    reliability: float,
+    *,
+    return_intermediate: bool = False,
+) -> PropagationResult:
+    """Area-mode propagation with confidence/reliability (CR) mode.
+
+    confidence, reliability: percentages in (0, 100).
+    Internally maps to time=reliability, location=confidence, situation=confidence.
+    Uses mdvar=1 (ACCIDENTAL) per CR→TLS mapping.
+    """
+    return predict_area(
+        h_tx__meter=h_tx__meter,
+        h_rx__meter=h_rx__meter,
+        tx_siting=tx_siting,
+        rx_siting=rx_siting,
+        d__km=d__km,
+        delta_h__meter=delta_h__meter,
+        climate=climate,
+        N_0=N_0,
+        f__mhz=f__mhz,
+        pol=pol,
+        epsilon=epsilon,
+        sigma=sigma,
+        mdvar=1,
+        time=reliability,
+        location=confidence,
+        situation=confidence,
+        return_intermediate=return_intermediate,
+    )

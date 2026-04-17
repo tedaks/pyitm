@@ -8,7 +8,7 @@ Public entry points: `predict_p2p` and `predict_area`.
 Derived from NTIA's Irregular Terrain Model (ITM). Copyright NTIA.
 """
 
-from itm.itm import predict_p2p, predict_area
+from itm.itm import predict_p2p, predict_area, predict_p2p_cr, predict_area_cr
 from itm.models import (
     Climate,
     Polarization,
@@ -18,11 +18,16 @@ from itm.models import (
     TerrainProfile,
     IntermediateValues,
     PropagationResult,
+    Warnings,
 )
+
+__version__ = "0.1.0"
 
 __all__ = [
     "predict_p2p",
     "predict_area",
+    "predict_p2p_cr",
+    "predict_area_cr",
     "Climate",
     "Polarization",
     "MDVar",
@@ -31,4 +36,6 @@ __all__ = [
     "TerrainProfile",
     "IntermediateValues",
     "PropagationResult",
+    "Warnings",
+    "__version__",
 ]

@@ -1,8 +1,13 @@
 # tests/test_propagation.py
 import math
+import pytest
 from itm.propagation import (
     free_space_loss,
     fresnel_integral,
+    knife_edge_diffraction,
+    smooth_earth_diffraction,
+    troposcatter_loss,
+    line_of_sight_loss,
     h0_curve,
     h0_function,
     initialize_point_to_point,
@@ -50,3 +55,77 @@ def test_initialize_point_to_point_horizontal():
     assert 1e-8 < gamma_e < 2e-7
     # Z_g should have positive real part
     assert Z_g.real > 0
+
+
+def test_knife_edge_diffraction_v_zero():
+    result = knife_edge_diffraction(
+        d__meter=10000.0,
+        f__mhz=100.0,
+        a_e__meter=6370e3,
+        theta_los=0.0,
+        d_hzn__meter=[1000.0, 1000.0],
+    )
+    assert isinstance(result, float)
+
+
+def test_knife_edge_diffraction_v_values():
+    result_neg = knife_edge_diffraction(
+        d__meter=15000.0,
+        f__mhz=100.0,
+        a_e__meter=6370e3,
+        theta_los=-0.001,
+        d_hzn__meter=[5000.0, 5000.0],
+    )
+    result_pos = knife_edge_diffraction(
+        d__meter=15000.0,
+        f__mhz=100.0,
+        a_e__meter=6370e3,
+        theta_los=0.001,
+        d_hzn__meter=[5000.0, 5000.0],
+    )
+    assert result_neg >= 0
+    assert result_pos >= 0
+
+
+def test_smooth_earth_diffraction_smoke():
+    result = smooth_earth_diffraction(
+        d__meter=10000.0,
+        f__mhz=100.0,
+        a_e__meter=6370e3,
+        theta_los=0.001,
+        d_hzn__meter=[2000.0, 2000.0],
+        h_e__meter=[10.0, 10.0],
+        Z_g=complex(5.0, 0.5),
+    )
+    assert isinstance(result, float)
+
+
+def test_troposcatter_loss_sentinel_path():
+    result, h0_out = troposcatter_loss(
+        d__meter=50000.0,
+        theta_hzn=[0.0001, 0.0001],
+        d_hzn__meter=[10000.0, 10000.0],
+        h_e__meter=[1.0, 1.0],
+        a_e__meter=6370e3,
+        N_s=301.0,
+        f__mhz=100.0,
+        theta_los=0.0,
+        h0=0.0,
+    )
+    assert result == pytest.approx(1001.0, rel=1e-9)
+    assert h0_out == 0.0
+
+
+def test_line_of_sight_loss_smoke():
+    result = line_of_sight_loss(
+        d__meter=5000.0,
+        h_e__meter=[10.0, 10.0],
+        Z_g=complex(5.0, 0.5),
+        delta_h__meter=0.0,
+        M_d=0.01,
+        A_d0=0.0,
+        d_sML__meter=10000.0,
+        f__mhz=100.0,
+    )
+    assert isinstance(result, float)
+    assert result >= 0

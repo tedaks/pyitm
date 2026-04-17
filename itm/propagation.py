@@ -276,7 +276,7 @@ def line_of_sight_loss(
     R_e = (
         (sin_psi - Z_g)
         / (sin_psi + Z_g)
-        * cmath.exp(-min(10.0, wn * sigma_h_d__meter * sin_psi))
+        * math.exp(-min(10.0, wn * sigma_h_d__meter * sin_psi))
     )
 
     q = R_e.real**2 + R_e.imag**2
