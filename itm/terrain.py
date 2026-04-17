@@ -32,27 +32,26 @@ def find_horizons(
     ]
     d_hzn__meter = [d__meter, d__meter]
 
-    d_tx__meter = 0.0
-    d_rx__meter = d__meter
+    # Vectorized computation of horizon angles
+    indices = np.arange(1, np_)
+    d_tx_arr = indices * xi
+    d_rx_arr = (np_ - indices) * xi
 
-    for i in range(1, np_):
-        d_tx__meter += xi
-        d_rx__meter -= xi
+    theta_tx_arr = (elevations[indices] - z_tx) / d_tx_arr - d_tx_arr / (2.0 * a_e__meter)
+    theta_rx_arr = -(z_rx - elevations[indices]) / d_rx_arr - d_rx_arr / (2.0 * a_e__meter)
 
-        theta_tx = (elevations[i] - z_tx) / d_tx__meter - d_tx__meter / (
-            2.0 * a_e__meter
-        )
-        theta_rx = -(z_rx - elevations[i]) / d_rx__meter - d_rx__meter / (
-            2.0 * a_e__meter
-        )
+    # Find indices of maximum angles
+    idx_max_tx = np.argmax(theta_tx_arr)
+    idx_max_rx = np.argmax(theta_rx_arr)
 
-        if theta_tx > theta_hzn[0]:
-            theta_hzn[0] = theta_tx
-            d_hzn__meter[0] = d_tx__meter
+    # Update results if horizon angles exceed initial LOS values
+    if theta_tx_arr[idx_max_tx] > theta_hzn[0]:
+        theta_hzn[0] = float(theta_tx_arr[idx_max_tx])
+        d_hzn__meter[0] = float(d_tx_arr[idx_max_tx])
 
-        if theta_rx > theta_hzn[1]:
-            theta_hzn[1] = theta_rx
-            d_hzn__meter[1] = d_rx__meter
+    if theta_rx_arr[idx_max_rx] > theta_hzn[1]:
+        theta_hzn[1] = float(theta_rx_arr[idx_max_rx])
+        d_hzn__meter[1] = float(d_rx_arr[idx_max_rx])
 
     return theta_hzn, d_hzn__meter
 
@@ -103,11 +102,9 @@ def compute_delta_h(
     fit_y1, fit_y2 = linear_least_squares_fit(s_arr, 1.0, 0.0, np_s)
     fit_slope = (fit_y2 - fit_y1) / np_s
 
-    diffs = np.empty(n)
-    current_fit = fit_y1
-    for j in range(n):
-        diffs[j] = s_elevations[j] - current_fit
-        current_fit += fit_slope
+    # Vectorized residuals: fitted line evaluated at each point
+    fit_line = fit_y1 + fit_slope * np.arange(n)
+    diffs = s_arr - fit_line
 
     # q10: p10-th largest value (≈ 90th percentile)
     q10 = float(-np.partition(-diffs, p10 - 1)[p10 - 1])
