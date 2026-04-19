@@ -1,8 +1,11 @@
 # itm/models.py
 from __future__ import annotations
+import logging
 from dataclasses import dataclass
 from enum import IntFlag, IntEnum
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 
 class Climate(IntEnum):
@@ -91,6 +94,11 @@ class TerrainProfile:
         else:
             actual_np = min(np_, available - 1)
             elevations = np.asarray(pfl[2 : 2 + actual_np + 1], dtype=float)
+            logger.warning(
+                "PFL data truncated: header declares %d elevation intervals "
+                "(%d points) but only %d values available; using %d points",
+                np_, np_ + 1, available, actual_np + 1,
+            )
         return cls(elevations=elevations, resolution=resolution)
 
 
@@ -110,5 +118,5 @@ class IntermediateValues:
 @dataclass(frozen=True)
 class PropagationResult:
     A__db: float
-    warnings: Warnings
+    warnings: int
     intermediate: IntermediateValues | None = None

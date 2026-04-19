@@ -1,5 +1,6 @@
 # itm/itm.py
 from __future__ import annotations
+import logging
 from itm._constants import (
     WARN__TX_TERMINAL_HEIGHT,
     WARN__RX_TERMINAL_HEIGHT,
@@ -19,6 +20,8 @@ from itm.terrain import quick_pfl, initialize_area
 from itm.propagation import initialize_point_to_point, longley_rice, free_space_loss
 from itm.variability import variability
 
+logger = logging.getLogger(__name__)
+
 
 def _validate_inputs(
     h_tx__meter: float,
@@ -34,18 +37,25 @@ def _validate_inputs(
     sigma: float,
     mdvar: int,
 ) -> int:
-    """Validate common inputs. Returns initial warnings bitmask. Raises ValueError on error."""
+    """Validate common inputs. Returns initial warnings bitmask. Raises ValueError on error.
+
+    Check order matches the C++ ValidateInputs.cpp: warning-range checks before
+    error-range checks so that the warning bitmask is populated even when an
+    error will be raised.
+    """
     warnings = 0
 
-    if h_tx__meter < 0.5 or h_tx__meter > 3000.0:
-        raise ValueError(f"h_tx__meter={h_tx__meter} out of range [0.5, 3000]")
+    # TX height: warn-range first, then error-range (matches C++ order)
     if h_tx__meter < 1.0 or h_tx__meter > 1000.0:
         warnings |= WARN__TX_TERMINAL_HEIGHT
+    if h_tx__meter < 0.5 or h_tx__meter > 3000.0:
+        raise ValueError(f"h_tx__meter={h_tx__meter} out of range [0.5, 3000]")
 
-    if h_rx__meter < 0.5 or h_rx__meter > 3000.0:
-        raise ValueError(f"h_rx__meter={h_rx__meter} out of range [0.5, 3000]")
+    # RX height: warn-range first, then error-range
     if h_rx__meter < 1.0 or h_rx__meter > 1000.0:
         warnings |= WARN__RX_TERMINAL_HEIGHT
+    if h_rx__meter < 0.5 or h_rx__meter > 3000.0:
+        raise ValueError(f"h_rx__meter={h_rx__meter} out of range [0.5, 3000]")
 
     valid_climates = {1, 2, 3, 4, 5, 6, 7}
     if int(climate) not in valid_climates:
@@ -54,10 +64,11 @@ def _validate_inputs(
     if N_0 < 250 or N_0 > 400:
         raise ValueError(f"N_0={N_0} out of range [250, 400]")
 
-    if f__mhz < 20 or f__mhz > 20000:
-        raise ValueError(f"f__mhz={f__mhz} out of range [20, 20000]")
+    # Frequency: warn-range first, then error-range
     if f__mhz < 40.0 or f__mhz > 10000.0:
         warnings |= WARN__FREQUENCY
+    if f__mhz < 20 or f__mhz > 20000:
+        raise ValueError(f"f__mhz={f__mhz} out of range [20, 20000]")
 
     if int(pol) not in (0, 1):
         raise ValueError(f"pol={pol} must be 0 (HORIZONTAL) or 1 (VERTICAL)")
@@ -305,6 +316,7 @@ def predict_p2p_cr(
     pol: Polarization,
     epsilon: float,
     sigma: float,
+    mdvar: int,
     confidence: float,
     reliability: float,
     *,
@@ -313,8 +325,9 @@ def predict_p2p_cr(
     """Point-to-point propagation with confidence/reliability (CR) mode.
 
     confidence, reliability: percentages in (0, 100).
-    Internally maps to time=reliability, location=confidence, situation=confidence.
-    Uses mdvar=1 (ACCIDENTAL) per CR→TLS mapping.
+    mdvar: mode of variability (0-3, 10-13, 20-23, 30-33).
+    Internally maps to TLS as: time=reliability, location=50, situation=confidence.
+    This matches the C++ ITM_P2P_CR_Ex mapping.
     """
     return predict_p2p(
         h_tx__meter=h_tx__meter,
@@ -326,9 +339,9 @@ def predict_p2p_cr(
         pol=pol,
         epsilon=epsilon,
         sigma=sigma,
-        mdvar=1,
+        mdvar=mdvar,
         time=reliability,
-        location=confidence,
+        location=50.0,
         situation=confidence,
         return_intermediate=return_intermediate,
     )
@@ -347,6 +360,7 @@ def predict_area_cr(
     pol: Polarization,
     epsilon: float,
     sigma: float,
+    mdvar: int,
     confidence: float,
     reliability: float,
     *,
@@ -355,8 +369,9 @@ def predict_area_cr(
     """Area-mode propagation with confidence/reliability (CR) mode.
 
     confidence, reliability: percentages in (0, 100).
-    Internally maps to time=reliability, location=confidence, situation=confidence.
-    Uses mdvar=1 (ACCIDENTAL) per CR→TLS mapping.
+    mdvar: mode of variability (0-3, 10-13, 20-23, 30-33).
+    Internally maps to TLS as: time=reliability, location=50, situation=confidence.
+    This matches the C++ ITM_AREA_CR_Ex mapping.
     """
     return predict_area(
         h_tx__meter=h_tx__meter,
@@ -371,9 +386,9 @@ def predict_area_cr(
         pol=pol,
         epsilon=epsilon,
         sigma=sigma,
-        mdvar=1,
+        mdvar=mdvar,
         time=reliability,
-        location=confidence,
+        location=50.0,
         situation=confidence,
         return_intermediate=return_intermediate,
     )

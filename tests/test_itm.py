@@ -340,6 +340,7 @@ def test_predict_p2p_cr_returns_result():
         pol=Polarization.VERTICAL,
         epsilon=15.0,
         sigma=0.008,
+        mdvar=0,
         confidence=50.0,
         reliability=50.0,
     )
@@ -363,8 +364,90 @@ def test_predict_area_cr_returns_result():
         pol=Polarization.HORIZONTAL,
         epsilon=15.0,
         sigma=0.008,
+        mdvar=0,
         confidence=50.0,
         reliability=50.0,
     )
     assert isinstance(result, PropagationResult)
     assert result.A__db > 0
+
+
+def test_predict_p2p_cr_matches_tls_equivalent():
+    """Verify CR mode produces the same result as calling predict_p2p with
+    time=reliability, location=50, situation=confidence (C++ mapping)."""
+    from itm import predict_p2p_cr
+
+    terrain = make_flat_terrain()
+    cr_result = predict_p2p_cr(
+        h_tx__meter=10.0,
+        h_rx__meter=1.0,
+        terrain=terrain,
+        climate=Climate.CONTINENTAL_TEMPERATE,
+        N_0=301.0,
+        f__mhz=230.0,
+        pol=Polarization.VERTICAL,
+        epsilon=15.0,
+        sigma=0.008,
+        mdvar=0,
+        confidence=70.0,
+        reliability=90.0,
+    )
+    tls_result = predict_p2p(
+        h_tx__meter=10.0,
+        h_rx__meter=1.0,
+        terrain=terrain,
+        climate=Climate.CONTINENTAL_TEMPERATE,
+        N_0=301.0,
+        f__mhz=230.0,
+        pol=Polarization.VERTICAL,
+        epsilon=15.0,
+        sigma=0.008,
+        mdvar=0,
+        time=90.0,
+        location=50.0,
+        situation=70.0,
+    )
+    assert cr_result.A__db == pytest.approx(tls_result.A__db, rel=1e-12)
+
+
+def test_predict_area_cr_matches_tls_equivalent():
+    """Verify area CR mode produces the same result as calling predict_area with
+    time=reliability, location=50, situation=confidence (C++ mapping)."""
+    from itm import predict_area_cr
+
+    cr_result = predict_area_cr(
+        h_tx__meter=10.0,
+        h_rx__meter=1.0,
+        tx_siting=SitingCriteria.RANDOM,
+        rx_siting=SitingCriteria.RANDOM,
+        d__km=16.0,
+        delta_h__meter=0.0,
+        climate=Climate.CONTINENTAL_TEMPERATE,
+        N_0=301.0,
+        f__mhz=230.0,
+        pol=Polarization.HORIZONTAL,
+        epsilon=15.0,
+        sigma=0.008,
+        mdvar=0,
+        confidence=70.0,
+        reliability=90.0,
+    )
+    tls_result = predict_area(
+        h_tx__meter=10.0,
+        h_rx__meter=1.0,
+        tx_siting=SitingCriteria.RANDOM,
+        rx_siting=SitingCriteria.RANDOM,
+        d__km=16.0,
+        delta_h__meter=0.0,
+        climate=Climate.CONTINENTAL_TEMPERATE,
+        N_0=301.0,
+        f__mhz=230.0,
+        pol=Polarization.HORIZONTAL,
+        epsilon=15.0,
+        sigma=0.008,
+        mdvar=0,
+        time=90.0,
+        location=50.0,
+        situation=70.0,
+    )
+    assert cr_result.A__db == pytest.approx(tls_result.A__db, rel=1e-12)

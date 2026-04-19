@@ -4,7 +4,7 @@
 
 Pure-Python port of the ITS Irregular Terrain Model (ITM / Longley-Rice).  
 Predicts terrestrial radiowave propagation loss for 20 MHz – 20 GHz.  
-Public API: `predict_p2p` and `predict_area` in `itm/itm.py`, re-exported from `itm/__init__.py`.
+Public API: `predict_p2p`, `predict_area`, `predict_p2p_cr`, `predict_area_cr` in `itm/itm.py`, re-exported from `itm/__init__.py`.
 
 ## Commands
 
@@ -19,7 +19,7 @@ python3 -m pytest
 ruff check itm/
 ```
 
-All 35 tests must pass before any commit.
+All 68 tests must pass before any commit.
 
 ## Package layout
 
@@ -30,7 +30,7 @@ All 35 tests must pass before any commit.
 | `itm/terrain.py` | Horizon finding, delta-h, PFL helpers, area initialisation |
 | `itm/variability.py` | ICCDF, signal variability statistics |
 | `itm/propagation.py` | Free-space loss, diffraction, troposcatter, `longley_rice` |
-| `itm/itm.py` | Input validation, `predict_p2p`, `predict_area` |
+| `itm/itm.py` | Input validation, `predict_p2p`, `predict_area`, `predict_p2p_cr`, `predict_area_cr` |
 
 ## Accuracy requirement
 

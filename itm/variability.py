@@ -102,11 +102,15 @@ def linear_least_squares_fit(
     sum_y = 0.5 * (elevations[i_start] + elevations[i_end])
     scaled_sum_y = 0.5 * (elevations[i_start] - elevations[i_end]) * mid_shifted_index
 
-    for i in range(2, int(x_length) + 1):
-        i_start += 1
-        mid_shifted_index += 1.0
-        sum_y += elevations[i_start]
-        scaled_sum_y += elevations[i_start] * mid_shifted_index
+    # Vectorized accumulation: loop iterations 2..x_length correspond to
+    # indices (i_start+1) through (i_start + x_length - 1), with mid-shifted
+    # indices starting at (-0.5*x_length + 1) and incrementing by 1 each step.
+    n_inner = int(x_length) - 1
+    if n_inner > 0:
+        inner_elevs = elevations[i_start + 1 : i_start + 1 + n_inner]
+        inner_offsets = np.arange(-0.5 * x_length + 1.0, -0.5 * x_length + 1.0 + n_inner)
+        sum_y += float(np.sum(inner_elevs))
+        scaled_sum_y += float(np.dot(inner_elevs, inner_offsets))
 
     sum_y /= x_length
     scaled_sum_y = scaled_sum_y * 12.0 / ((x_length * x_length + 2.0) * x_length)
