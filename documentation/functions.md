@@ -4,7 +4,7 @@
 
 A pure-Python port of the ITS Irregular Terrain Model (Longley-Rice) for radiowave propagation prediction between 20 MHz and 20 GHz. Models three propagation mechanisms: free-space, diffraction, and troposcatter. Library only — no CLI.
 
-**Python:** ≥ 3.10 | **Dependencies:** NumPy | **Validated:** ±0.01 dB vs. reference FORTRAN 1.2.2
+**Python:** ≥ 3.10 (CI: 3.10–3.14) | **Dependencies:** NumPy | **Validated:** against the NTIA/itm C++ reference (v1.4 / master `183ad95`) — reference CSVs plus a differential test on random inputs (±0.01 dB)
 
 ---
 
@@ -125,8 +125,10 @@ Inspect with: `result.warnings & WARN__<flag>`
 
 | File | What it covers |
 |---|---|
-| `test_p2p.py` | 35+ parametrized tests vs. reference CSV; ±0.01 dB tolerance |
-| `test_area.py` | Area-mode vs. reference CSV |
+| `test_p2p.py` | p2p vs. root `p2p.csv` / `pfls.csv` (5 synthetic paths); ±0.01 dB; plus a rounding regression case |
+| `test_area.py` | Area mode vs. root `area.csv` (5 cases); ±0.01 dB |
+| `test_ntia_reference.py` | p2p and area vs. the CSVs shipped with NTIA/itm (`tests/data/ntia/`, real terrain); must round to the published value |
+| `test_differential.py` | p2p and area vs. the C++ reference on random inputs; skips unless `ITM_REFERENCE_LIB` is set |
 | `test_itm.py` | Input validation, warning flags, intermediate values |
 | `test_terrain.py` | Horizon finding, delta-h, PFL parsing |
 | `test_propagation.py` | Free-space loss, Fresnel, H₀, ground impedance |

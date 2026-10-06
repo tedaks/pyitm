@@ -14,7 +14,7 @@
 
 ## Medium effort
 
-- [ ] **Confidence / reliability variability mode** — The README documents `confidence` and `reliability` as alternative inputs to `time/location/situation`, but the Python API does not expose this. Add a mapping layer in `itm/itm.py` so callers can pass these directly, matching the original ITM interface.
+- [x] **Confidence / reliability variability mode** — Done: `predict_p2p_cr` / `predict_area_cr` (0.1.0; C++-matching CR→TLS mapping and `mdvar` parameter in 0.2.0).
 
 - [ ] **Antenna gain parameters in API** — Add optional `tx_antenna_gain_dbi=0.0` and `rx_antenna_gain_dbi=0.0` to `predict_p2p` and `predict_area`. Add `A_eff__db` field to `PropagationResult` (= `A__db - tx_gain - rx_gain`). Keep `A__db` as the isotropic baseline for transparency.
   - Files: `itm/models.py`, `itm/itm.py`
