@@ -19,7 +19,7 @@ python3 -m pytest
 ruff check itm/
 ```
 
-All 72 tests must pass before any commit (the 2 in `tests/test_differential.py` skip unless `ITM_REFERENCE_LIB` is set).
+All 82 tests must pass before any commit (the 2 in `tests/test_differential.py` skip unless `ITM_REFERENCE_LIB` is set).
 
 ```bash
 # Differential test against the NTIA/itm C++ reference (Linux, needs g++)
@@ -39,7 +39,7 @@ ITM_REFERENCE_LIB=$(tools/build_itm_reference.sh) python3 -m pytest tests/test_d
 
 ## Accuracy requirement
 
-All predictions must match the reference CSVs (`p2p.csv` / `pfls.csv` / `area.csv`) to within **0.01 dB**. The integration tests in `tests/test_p2p.py` and `tests/test_area.py` enforce this tolerance — do not loosen it. `tests/test_differential.py` enforces it against the C++ reference on random inputs; a vectorization that reorders floating-point operations can pass the CSVs and still fail here.
+All predictions must match the reference CSVs (`p2p.csv` / `pfls.csv` / `area.csv`) to within **0.01 dB**, and must round to the published values in NTIA's own CSVs (`tests/data/ntia/`, checked by `tests/test_ntia_reference.py`). The integration tests in `tests/test_p2p.py` and `tests/test_area.py` enforce this tolerance — do not loosen it. `tests/test_differential.py` enforces it against the C++ reference on random inputs; a vectorization that reorders floating-point operations can pass the CSVs and still fail here.
 
 ## Coding conventions
 
