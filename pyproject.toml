@@ -16,3 +16,7 @@ itm = ["py.typed"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff.lint]
+# Explicit so new ruff releases don't change the rule set under CI (0.16 widened the defaults).
+select = ["E4", "E7", "E9", "F"]
