@@ -41,6 +41,14 @@ ITM_REFERENCE_LIB=$(tools/build_itm_reference.sh) python3 -m pytest tests/test_d
 
 All predictions must match the reference CSVs (`p2p.csv` / `pfls.csv` / `area.csv`) to within **0.01 dB**, and must round to the published values in NTIA's own CSVs (`tests/data/ntia/`, checked by `tests/test_ntia_reference.py`). The integration tests in `tests/test_p2p.py` and `tests/test_area.py` enforce this tolerance — do not loosen it. `tests/test_differential.py` enforces it against the C++ reference on random inputs; a vectorization that reorders floating-point operations can pass the CSVs and still fail here.
 
+### Fidelity policy: match the C++ exactly
+
+The port reproduces the NTIA/itm C++ reference (master `183ad95`) operation for operation, **including its numeric quirks**. In particular, `linear_least_squares_fit` truncates distances to terrain indices with `int()`, so a last-bit difference in a distance can select a neighbouring index and move `A__db` by more than 1 dB (NTIA/itm#21). This is intentional; do not "fix" it:
+
+- Do not adopt rounding fixes such as the unmerged NTIA/itm#22, or any other deviation from the C++ arithmetic, even where it is arguably more robust.
+- Vectorize only if the result is bit-identical to the C++ order of operations (e.g. `np.cumsum` for `d += xi`, not `i * xi`). `tests/test_differential.py` is the arbiter.
+- If upstream changes its arithmetic, update the pinned commit in `tools/build_itm_reference.sh` and follow it.
+
 ## Coding conventions
 
 - Functions accept plain Python/numpy scalars and return values; no output-pointer pattern.

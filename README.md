@@ -90,6 +90,10 @@ To also compare against the NTIA/itm C++ reference on random inputs (Linux, need
 ITM_REFERENCE_LIB=$(tools/build_itm_reference.sh) python3 -m pytest tests/test_differential.py
 ```
 
+## Numerical fidelity
+
+pyitm reproduces the [NTIA/itm](https://github.com/NTIA/itm) C++ implementation exactly, verified in CI against the compiled C++ on thousands of random inputs. That includes the C++ model's sensitivity to tiny terrain changes: because terrain-fit bounds are truncated to whole profile points, a change of ~1e-9 m in a terrain profile, or in its resolution, can occasionally shift `A__db` by over 1 dB ([NTIA/itm#21](https://github.com/NTIA/itm/issues/21)). pyitm deliberately keeps this behaviour so its results match the reference; if you compare results across tools, small input differences can explain large output differences on some paths.
+
 ## References
 
 - G.A. Hufford, [The ITS Irregular Terrain Model, version 1.2.2 Algorithm](https://www.its.bldrdoc.gov/media/50676/itm_alg.pdf)
