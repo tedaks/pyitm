@@ -1,8 +1,8 @@
 # tests/test_itm.py
 import pytest
 import numpy as np
-from itm import predict_p2p, predict_area
-from itm._constants import (
+from pyitm_ng import predict_p2p, predict_area
+from pyitm_ng._constants import (
     WARN__TX_TERMINAL_HEIGHT,
     WARN__RX_TERMINAL_HEIGHT,
     WARN__FREQUENCY,
@@ -11,7 +11,7 @@ from itm._constants import (
     WARN__SURFACE_REFRACTIVITY,
     WARN__EXTREME_VARIABILITIES,
 )
-from itm.models import (
+from pyitm_ng.models import (
     Climate,
     Polarization,
     SitingCriteria,
@@ -327,7 +327,7 @@ def test_mdvar_plus20_modifier(mdvar):
 
 
 def test_predict_p2p_cr_returns_result():
-    from itm import predict_p2p_cr
+    from pyitm_ng import predict_p2p_cr
 
     terrain = make_flat_terrain()
     result = predict_p2p_cr(
@@ -349,7 +349,7 @@ def test_predict_p2p_cr_returns_result():
 
 
 def test_predict_area_cr_returns_result():
-    from itm import predict_area_cr
+    from pyitm_ng import predict_area_cr
 
     result = predict_area_cr(
         h_tx__meter=10.0,
@@ -375,7 +375,7 @@ def test_predict_area_cr_returns_result():
 def test_predict_p2p_cr_matches_tls_equivalent():
     """Verify CR mode produces the same result as calling predict_p2p with
     time=reliability, location=50, situation=confidence (C++ mapping)."""
-    from itm import predict_p2p_cr
+    from pyitm_ng import predict_p2p_cr
 
     terrain = make_flat_terrain()
     cr_result = predict_p2p_cr(
@@ -413,7 +413,7 @@ def test_predict_p2p_cr_matches_tls_equivalent():
 def test_predict_area_cr_matches_tls_equivalent():
     """Verify area CR mode produces the same result as calling predict_area with
     time=reliability, location=50, situation=confidence (C++ mapping)."""
-    from itm import predict_area_cr
+    from pyitm_ng import predict_area_cr
 
     cr_result = predict_area_cr(
         h_tx__meter=10.0,

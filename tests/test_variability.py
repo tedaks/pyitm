@@ -2,9 +2,9 @@
 import math
 import pytest
 import numpy as np
-from itm._constants import WARN__EXTREME_VARIABILITIES
-from itm.models import Climate, MDVar
-from itm.variability import (
+from pyitm_ng._constants import WARN__EXTREME_VARIABILITIES
+from pyitm_ng.models import Climate, MDVar
+from pyitm_ng.variability import (
     iccdf,
     terrain_roughness,
     sigma_h_function,

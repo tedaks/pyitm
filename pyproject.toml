@@ -1,18 +1,48 @@
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "pyitm"
-version = "0.2.0"
+name = "pyitm-ng"
+dynamic = ["version"]
+description = "Pure-Python port of the NTIA Irregular Terrain Model (ITM / Longley-Rice), verified against the C++ reference"
+readme = "README.md"
+license-files = ["LICENSE.md"]
+authors = [{ name = "tedaks" }]
 requires-python = ">=3.10"
 dependencies = ["numpy>=1.21"]
+keywords = ["itm", "longley-rice", "radio propagation", "path loss", "ntia", "rf"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://github.com/tedaks/pyitm"
+Issues = "https://github.com/tedaks/pyitm/issues"
+Changelog = "https://github.com/tedaks/pyitm/blob/main/CHANGELOG.md"
+"Upstream (NTIA/itm)" = "https://github.com/NTIA/itm"
 
 [project.optional-dependencies]
 dev = ["pytest", "ruff"]
 
+[tool.setuptools]
+packages = ["pyitm_ng"]
+
+[tool.setuptools.dynamic]
+version = { attr = "pyitm_ng.__version__" }
+
 [tool.setuptools.package-data]
-itm = ["py.typed"]
+pyitm_ng = ["py.typed"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

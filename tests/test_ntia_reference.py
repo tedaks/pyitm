@@ -13,7 +13,7 @@ import pathlib
 
 import pytest
 
-from itm import (
+from pyitm_ng import (
     Climate,
     Polarization,
     SitingCriteria,

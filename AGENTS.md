@@ -1,10 +1,10 @@
-# pyitm — Agent Guide
+# pyitm-ng — Agent Guide
 
 ## Project overview
 
 Pure-Python port of the ITS Irregular Terrain Model (ITM / Longley-Rice).  
 Predicts terrestrial radiowave propagation loss for frequencies 20 MHz – 20 GHz.  
-Public entry points: `predict_p2p`, `predict_area`, `predict_p2p_cr`, `predict_area_cr` (see `itm/itm.py`).
+Public entry points: `predict_p2p`, `predict_area`, `predict_p2p_cr`, `predict_area_cr` (see `pyitm_ng/itm.py`).
 
 ## Setup
 
@@ -18,12 +18,12 @@ Requires Python ≥ 3.10 and numpy.
 
 ```bash
 python3 -m pytest          # all 82 tests must pass (2 differential tests skip without ITM_REFERENCE_LIB)
-ruff check itm/            # zero lint errors
+ruff check pyitm_ng/            # zero lint errors
 ```
 
 Run both commands after every change. Never submit work that breaks either.
 
-Changes to numeric code in `itm/` should also pass the differential test against the NTIA/itm C++ reference (Linux, needs g++):
+Changes to numeric code in `pyitm_ng/` should also pass the differential test against the NTIA/itm C++ reference (Linux, needs g++):
 
 ```bash
 ITM_REFERENCE_LIB=$(tools/build_itm_reference.sh) python3 -m pytest tests/test_differential.py
@@ -32,7 +32,7 @@ ITM_REFERENCE_LIB=$(tools/build_itm_reference.sh) python3 -m pytest tests/test_d
 ## Repository layout
 
 ```
-itm/
+pyitm_ng/
   _constants.py    — physics constants and warning/error flag values
   models.py        — enums (Climate, Polarization, MDVar, …) and dataclasses
   terrain.py       — horizon/delta-h/PFL geometry helpers
@@ -69,3 +69,10 @@ The port reproduces the NTIA/itm C++ reference (master `183ad95`) operation for 
 - Warnings are OR'd integer bitmasks propagated upward through callers.
 - Variable names mirror ITM mathematical notation (e.g. `h_e__meter`, `A_fs__db`).
 - Constants live in `_constants.py`; do not embed magic numbers in other modules.
+
+## Releasing
+
+1. Set `__version__` in `pyitm_ng/__init__.py` (the only place the version lives).
+2. In `CHANGELOG.md`, rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD` and add a fresh empty `## [Unreleased]` above it.
+3. Merge to `main`, then tag and push: `git tag vX.Y.Z && git push origin vX.Y.Z`.
+4. `.github/workflows/release.yml` builds, verifies the tag matches the version, tests the built wheel, and publishes to PyPI (trusted publishing, `pypi` environment).

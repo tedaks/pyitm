@@ -1,7 +1,7 @@
 # tests/test_propagation.py
 import math
 import pytest
-from itm.propagation import (
+from pyitm_ng.propagation import (
     free_space_loss,
     fresnel_integral,
     knife_edge_diffraction,

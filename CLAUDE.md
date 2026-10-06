@@ -1,10 +1,10 @@
-# pyitm — Claude Code Guide
+# pyitm-ng — Claude Code Guide
 
 ## Project overview
 
 Pure-Python port of the ITS Irregular Terrain Model (ITM / Longley-Rice).  
 Predicts terrestrial radiowave propagation loss for 20 MHz – 20 GHz.  
-Public API: `predict_p2p`, `predict_area`, `predict_p2p_cr`, `predict_area_cr` in `itm/itm.py`, re-exported from `itm/__init__.py`.
+Public API: `predict_p2p`, `predict_area`, `predict_p2p_cr`, `predict_area_cr` in `pyitm_ng/itm.py`, re-exported from `pyitm_ng/__init__.py`.
 
 ## Commands
 
@@ -16,7 +16,7 @@ pip install -e ".[dev]"
 python3 -m pytest
 
 # Lint
-ruff check itm/
+ruff check pyitm_ng/
 ```
 
 All 82 tests must pass before any commit (the 2 in `tests/test_differential.py` skip unless `ITM_REFERENCE_LIB` is set).
@@ -30,12 +30,12 @@ ITM_REFERENCE_LIB=$(tools/build_itm_reference.sh) python3 -m pytest tests/test_d
 
 | Module | Responsibility |
 |---|---|
-| `itm/_constants.py` | Named constants (warn flags, mode codes, physics) |
-| `itm/models.py` | Enums and dataclasses (`TerrainProfile`, `PropagationResult`, `IntermediateValues`, …) |
-| `itm/terrain.py` | Horizon finding, delta-h, PFL helpers, area initialisation |
-| `itm/variability.py` | ICCDF, signal variability statistics |
-| `itm/propagation.py` | Free-space loss, diffraction, troposcatter, `longley_rice` |
-| `itm/itm.py` | Input validation, `predict_p2p`, `predict_area`, `predict_p2p_cr`, `predict_area_cr` |
+| `pyitm_ng/_constants.py` | Named constants (warn flags, mode codes, physics) |
+| `pyitm_ng/models.py` | Enums and dataclasses (`TerrainProfile`, `PropagationResult`, `IntermediateValues`, …) |
+| `pyitm_ng/terrain.py` | Horizon finding, delta-h, PFL helpers, area initialisation |
+| `pyitm_ng/variability.py` | ICCDF, signal variability statistics |
+| `pyitm_ng/propagation.py` | Free-space loss, diffraction, troposcatter, `longley_rice` |
+| `pyitm_ng/itm.py` | Input validation, `predict_p2p`, `predict_area`, `predict_p2p_cr`, `predict_area_cr` |
 
 ## Accuracy requirement
 
@@ -56,6 +56,13 @@ The port reproduces the NTIA/itm C++ reference (master `183ad95`) operation for 
 - Variable names follow the ITM mathematical notation with pseudo-LaTeX underscores (e.g. `h_e__meter`, `A_ref__db`).
 - Do not add docstrings or type annotations to code you didn't author in this session.
 
+## Releasing
+
+1. Set `__version__` in `pyitm_ng/__init__.py` (the only place the version lives).
+2. In `CHANGELOG.md`, rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD` and add a fresh empty `## [Unreleased]` above it.
+3. Merge to `main`, then tag and push: `git tag vX.Y.Z && git push origin vX.Y.Z`.
+4. `.github/workflows/release.yml` builds, verifies the tag matches the version, tests the built wheel, and publishes to PyPI (trusted publishing, `pypi` environment).
+
 ## CI
 
-GitHub Actions (`.github/workflows/ci.yml`) runs `pytest -v` and `ruff check itm/ tests/` on every push/PR to `main`, plus a `differential` job that builds the C++ reference and runs `tests/test_differential.py` on 5000 random cases per mode.
+GitHub Actions (`.github/workflows/ci.yml`) runs `pytest -v` and `ruff check pyitm_ng/ tests/` on every push/PR to `main`, plus a `differential` job that builds the C++ reference and runs `tests/test_differential.py` on 5000 random cases per mode.

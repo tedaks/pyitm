@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking — renamed for PyPI:** distribution `pyitm` → `pyitm-ng` (the `pyitm` and `itm` names on PyPI belong to unrelated projects), import package `itm` → `pyitm_ng`. Update `from itm import …` to `from pyitm_ng import …`.
+- Version 0.3.0; `pyitm_ng.__version__` is the single source (read by `pyproject.toml`)
+- Package metadata for PyPI (description, readme, license file, classifiers, URLs); explicit package list so `tests/` and `tools/` are not installed
+
+### Added
+
+- `.github/workflows/release.yml`: on a `v*` tag, builds sdist + wheel, checks the tag matches the version, runs the test suite against the installed wheel, and publishes to PyPI via trusted publishing
+
 ### Added
 
 - Documented fidelity policy (README, `CLAUDE.md`, `AGENTS.md`): pyitm matches the NTIA/itm C++ exactly, including the `int()` truncation sensitivity in `linear_least_squares_fit` (NTIA/itm#21); upstream rounding fixes such as NTIA/itm#22 are deliberately not adopted

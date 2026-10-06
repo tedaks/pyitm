@@ -1,4 +1,4 @@
-# itm/_constants.py
+# pyitm_ng/_constants.py
 from __future__ import annotations
 import math
 

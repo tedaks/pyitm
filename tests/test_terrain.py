@@ -2,8 +2,8 @@
 import math
 import pytest
 import numpy as np
-from itm.terrain import find_horizons, compute_delta_h, quick_pfl
-from itm.models import TerrainProfile
+from pyitm_ng.terrain import find_horizons, compute_delta_h, quick_pfl
+from pyitm_ng.models import TerrainProfile
 
 
 def test_find_horizons_flat_earth():

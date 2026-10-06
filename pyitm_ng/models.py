@@ -1,4 +1,4 @@
-# itm/models.py
+# pyitm_ng/models.py
 from __future__ import annotations
 import logging
 from dataclasses import dataclass
