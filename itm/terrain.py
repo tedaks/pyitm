@@ -32,10 +32,14 @@ def find_horizons(
     ]
     d_hzn__meter = [d__meter, d__meter]
 
-    # Vectorized computation of horizon angles
+    # Vectorized computation of horizon angles.
+    # Distances are built by sequential accumulation (d_tx += xi, d_rx -= xi) as in
+    # the C++ reference, not as indices * xi: the two differ in the last bit, and
+    # downstream int() truncation in linear_least_squares_fit can turn that into a
+    # different index (up to ~0.9 dB in A__db).
     indices = np.arange(1, np_)
-    d_tx_arr = indices * xi
-    d_rx_arr = (np_ - indices) * xi
+    d_tx_arr = np.cumsum(np.full(np_ - 1, xi))
+    d_rx_arr = np.subtract.accumulate(np.concatenate(([d__meter], np.full(np_ - 1, xi))))[1:]
 
     theta_tx_arr = (elevations[indices] - z_tx) / d_tx_arr - d_tx_arr / (2.0 * a_e__meter)
     theta_rx_arr = -(z_rx - elevations[indices]) / d_rx_arr - d_rx_arr / (2.0 * a_e__meter)

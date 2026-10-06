@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **`find_horizons`**: horizon distances are again built by sequential accumulation (`d += xi`), as in the C++ reference, instead of `i * xi`. The vectorized form introduced in 0.2.0 differs in the last bit, which `int()` truncation in `linear_least_squares_fit` can turn into a different terrain index; on affected paths `predict_p2p` was off by up to ~1.9 dB. A differential run against NTIA/itm (C++, master `183ad95`) now matches exactly on 1000 random p2p and 1000 random area cases.
+- Added `test_find_horizons_distances_match_cpp_accumulation` and `test_p2p_horizon_distance_rounding_regression` (test count 68 → 70)
+
 ## [0.2.0] - 2026-04-19
 
 ### Added

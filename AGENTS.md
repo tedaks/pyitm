@@ -17,7 +17,7 @@ Requires Python ≥ 3.10 and numpy.
 ## Verification
 
 ```bash
-python3 -m pytest          # all 68 tests must pass
+python3 -m pytest          # all 70 tests must pass
 ruff check itm/            # zero lint errors
 ```
 

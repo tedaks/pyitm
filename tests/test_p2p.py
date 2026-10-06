@@ -60,3 +60,27 @@ def test_p2p_reference(idx):
     assert result.A__db == pytest.approx(c["A__db"], abs=0.01), (
         f"Case {idx}: expected {c['A__db']:.2f} dB, got {result.A__db:.2f} dB"
     )
+
+
+def test_p2p_horizon_distance_rounding_regression():
+    # Path where i * xi and accumulated xi differ in the last bit and int()
+    # truncation in linear_least_squares_fit picks a different index; the
+    # vectorized find_horizons was 1.65 dB off. Expected value from NTIA/itm
+    # C++ (ITM_P2P_TLS, master 183ad95).
+    pfl = [11.0, 146.1, 377.0, 206.0, 139.0, 211.0, 329.0, 141.0, 298.0, 175.0, 156.0, 147.0, 375.0, 72.0]
+    result = predict_p2p(
+        h_tx__meter=50.0,
+        h_rx__meter=1.0,
+        terrain=TerrainProfile.from_pfl(pfl),
+        climate=Climate(5),
+        N_0=301.0,
+        f__mhz=100.0,
+        pol=Polarization(1),
+        epsilon=15.0,
+        sigma=0.005,
+        mdvar=12,
+        time=50.0,
+        location=50.0,
+        situation=50.0,
+    )
+    assert result.A__db == pytest.approx(128.2976016591739, abs=0.01)

@@ -19,7 +19,7 @@ python3 -m pytest
 ruff check itm/
 ```
 
-All 68 tests must pass before any commit.
+All 70 tests must pass before any commit.
 
 ## Package layout
 
