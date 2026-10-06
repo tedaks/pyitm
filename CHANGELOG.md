@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- `tests/test_differential.py`: compares `predict_p2p` / `predict_area` against the NTIA/itm C++ reference on random inputs (A__db within 0.01 dB, identical warnings, matching errors); skips unless `ITM_REFERENCE_LIB` is set
+- `tools/build_itm_reference.sh`: builds the C++ reference at a pinned commit as `libitm.so`
+- CI `differential` job running the above on 5000 cases per mode
+
+### Changed
+
+- Ruff rule set selected explicitly (`E4`, `E7`, `E9`, `F`) so ruff releases can't change what CI enforces
+
 ### Fixed
 
 - **`find_horizons`**: horizon distances are again built by sequential accumulation (`d += xi`), as in the C++ reference, instead of `i * xi`. The vectorized form introduced in 0.2.0 differs in the last bit, which `int()` truncation in `linear_least_squares_fit` can turn into a different terrain index; on affected paths `predict_p2p` was off by up to ~1.9 dB. A differential run against NTIA/itm (C++, master `183ad95`) now matches exactly on 1000 random p2p and 1000 random area cases.

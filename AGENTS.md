@@ -17,11 +17,17 @@ Requires Python ≥ 3.10 and numpy.
 ## Verification
 
 ```bash
-python3 -m pytest          # all 70 tests must pass
+python3 -m pytest          # all 72 tests must pass (2 differential tests skip without ITM_REFERENCE_LIB)
 ruff check itm/            # zero lint errors
 ```
 
 Run both commands after every change. Never submit work that breaks either.
+
+Changes to numeric code in `itm/` should also pass the differential test against the NTIA/itm C++ reference (Linux, needs g++):
+
+```bash
+ITM_REFERENCE_LIB=$(tools/build_itm_reference.sh) python3 -m pytest tests/test_differential.py
+```
 
 ## Repository layout
 
@@ -36,6 +42,9 @@ itm/
 tests/
   test_p2p.py      — integration: every row of p2p.csv against pfls.csv terrain data
   test_area.py     — integration: every row of area.csv
+  test_differential.py — random inputs vs the C++ reference (skips without ITM_REFERENCE_LIB)
+tools/
+  build_itm_reference.sh — builds NTIA/itm (pinned commit) as libitm.so
   test_*.py        — unit tests per module
 p2p.csv / pfls.csv / area.csv  — reference data (do not modify)
 ```
