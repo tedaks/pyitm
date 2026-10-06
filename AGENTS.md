@@ -17,7 +17,7 @@ Requires Python ≥ 3.10 and numpy.
 ## Verification
 
 ```bash
-python3 -m pytest          # all 72 tests must pass (2 differential tests skip without ITM_REFERENCE_LIB)
+python3 -m pytest          # all 82 tests must pass (2 differential tests skip without ITM_REFERENCE_LIB)
 ruff check itm/            # zero lint errors
 ```
 
@@ -42,11 +42,13 @@ itm/
 tests/
   test_p2p.py      — integration: every row of p2p.csv against pfls.csv terrain data
   test_area.py     — integration: every row of area.csv
+  test_ntia_reference.py — NTIA/itm's own reference CSVs (tests/data/ntia/, real terrain)
   test_differential.py — random inputs vs the C++ reference (skips without ITM_REFERENCE_LIB)
 tools/
   build_itm_reference.sh — builds NTIA/itm (pinned commit) as libitm.so
   test_*.py        — unit tests per module
 p2p.csv / pfls.csv / area.csv  — reference data (do not modify)
+tests/data/ntia/               — NTIA/itm reference data, verbatim from master 183ad95 (do not modify)
 ```
 
 ## Accuracy constraint

@@ -3,7 +3,7 @@
 Pure-Python port of the ITS Irregular Terrain Model (ITM / Longley-Rice).
 
 Predicts terrestrial radiowave propagation loss for frequencies 20 MHz – 20 GHz.
-Public entry points: `predict_p2p` and `predict_area`.
+Public entry points: `predict_p2p`, `predict_area`, `predict_p2p_cr` and `predict_area_cr`.
 
 Derived from NTIA's Irregular Terrain Model (ITM). Copyright NTIA.
 """

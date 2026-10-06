@@ -81,7 +81,13 @@ See docstrings for full parameter documentation.
 ```bash
 pip install -e ".[dev]"
 python3 -m pytest
-ruff check itm/
+ruff check itm/ tests/
+```
+
+To also compare against the NTIA/itm C++ reference on random inputs (Linux, needs g++):
+
+```bash
+ITM_REFERENCE_LIB=$(tools/build_itm_reference.sh) python3 -m pytest tests/test_differential.py
 ```
 
 ## References

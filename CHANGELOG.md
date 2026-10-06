@@ -11,12 +11,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `tests/test_differential.py`: compares `predict_p2p` / `predict_area` against the NTIA/itm C++ reference on random inputs (A__db within 0.01 dB, identical warnings, matching errors); skips unless `ITM_REFERENCE_LIB` is set
 - `tools/build_itm_reference.sh`: builds the C++ reference at a pinned commit as `libitm.so`
 - CI `differential` job running the above on 5000 cases per mode
+- `tests/test_ntia_reference.py`: p2p and area cases from the CSVs shipped with NTIA/itm (`tests/data/ntia/`, real terrain profiles); results must round to the published values
+- Python 3.14 in the CI test matrix
 
 ### Changed
 
 - Ruff rule set selected explicitly (`E4`, `E7`, `E9`, `F`) so ruff releases can't change what CI enforces
 
 ### Fixed
+
+- `itm/__init__.py` docstring listed only two of the four entry points; `documentation/functions.md` claimed validation against "FORTRAN 1.2.2" (it is validated against the C++ reference) and had a stale test table; `documentation/todo.md` still listed CR mode as open
 
 - **`find_horizons`**: horizon distances are again built by sequential accumulation (`d += xi`), as in the C++ reference, instead of `i * xi`. The vectorized form introduced in 0.2.0 differs in the last bit, which `int()` truncation in `linear_least_squares_fit` can turn into a different terrain index; on affected paths `predict_p2p` was off by up to ~1.9 dB. A differential run against NTIA/itm (C++, master `183ad95`) now matches exactly on 1000 random p2p and 1000 random area cases.
 - Added `test_find_horizons_distances_match_cpp_accumulation` and `test_p2p_horizon_distance_rounding_regression` (test count 68 → 70)
