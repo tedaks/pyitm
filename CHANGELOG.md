@@ -6,8 +6,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-## [0.3.0] - 2026-10-06
-
 ### Changed
 
 - **Breaking — renamed for PyPI:** distribution `pyitm` → `pyitm-ng` (the `pyitm` and `itm` names on PyPI belong to unrelated projects), import package `itm` → `pyitm_ng`. Update `from itm import …` to `from pyitm_ng import …`.
