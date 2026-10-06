@@ -1,8 +1,8 @@
-# itm/propagation.py
+# pyitm_ng/propagation.py
 from __future__ import annotations
 import math
 import cmath
-from itm._constants import (
+from pyitm_ng._constants import (
     PI,
     SQRT2,
     THIRD,
@@ -26,8 +26,8 @@ from itm._constants import (
     WARN__SURFACE_REFRACTIVITY,
     MODE__P2P,
 )
-from itm.models import PropMode
-from itm.variability import terrain_roughness, sigma_h_function
+from pyitm_ng.models import PropMode
+from pyitm_ng.variability import terrain_roughness, sigma_h_function
 
 
 def free_space_loss(d__meter: float, f__mhz: float) -> float:

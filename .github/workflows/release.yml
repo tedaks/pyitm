@@ -1,0 +1,55 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build sdist and wheel
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build
+
+      - name: Check tag matches package version
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          ls "dist/pyitm_ng-${version}-py3-none-any.whl" "dist/pyitm_ng-${version}.tar.gz"
+
+      - name: Test the built wheel
+        run: |
+          python -m venv /tmp/wheel-env
+          /tmp/wheel-env/bin/pip install dist/*.whl pytest
+          # outside the checkout, so the installed wheel is what gets imported
+          mkdir /tmp/wheel-check && cp -r tests p2p.csv pfls.csv area.csv /tmp/wheel-check/
+          cd /tmp/wheel-check && /tmp/wheel-env/bin/python -m pytest -q tests
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/pyitm-ng
+    permissions:
+      id-token: write  # PyPI trusted publishing; no API token stored
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - uses: pypa/gh-action-pypi-publish@release/v1

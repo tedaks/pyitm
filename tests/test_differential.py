@@ -17,7 +17,7 @@ import random
 import numpy as np
 import pytest
 
-from itm import (
+from pyitm_ng import (
     Climate,
     Polarization,
     SitingCriteria,

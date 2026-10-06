@@ -1,4 +1,4 @@
-# PyITM — Functions & Capabilities Reference
+# pyitm-ng — Functions & Capabilities Reference
 
 ## Overview
 
@@ -8,9 +8,9 @@ A pure-Python port of the ITS Irregular Terrain Model (Longley-Rice) for radiowa
 
 ---
 
-## Public API (`itm/`)
+## Public API (`pyitm_ng/`)
 
-### Entry Points — `itm/itm.py`
+### Entry Points — `pyitm_ng/itm.py`
 
 | Function | Description |
 |---|---|
@@ -40,7 +40,7 @@ Both return a `PropagationResult` with `A__db` (loss in dB), `warnings` bitmask,
 
 ---
 
-## Terrain Analysis — `itm/terrain.py`
+## Terrain Analysis — `pyitm_ng/terrain.py`
 
 | Function | Description |
 |---|---|
@@ -52,7 +52,7 @@ Both return a `PropagationResult` with `A__db` (loss in dB), `warnings` bitmask,
 
 ---
 
-## Propagation Loss — `itm/propagation.py`
+## Propagation Loss — `pyitm_ng/propagation.py`
 
 | Function | Description |
 |---|---|
@@ -72,7 +72,7 @@ Both return a `PropagationResult` with `A__db` (loss in dB), `warnings` bitmask,
 
 ---
 
-## Signal Variability — `itm/variability.py`
+## Signal Variability — `pyitm_ng/variability.py`
 
 | Function | Description |
 |---|---|
@@ -84,7 +84,7 @@ Both return a `PropagationResult` with `A__db` (loss in dB), `warnings` bitmask,
 
 ---
 
-## Data Models — `itm/models.py`
+## Data Models — `pyitm_ng/models.py`
 
 | Type | Kind | Description |
 |---|---|---|
@@ -99,7 +99,7 @@ Both return a `PropagationResult` with `A__db` (loss in dB), `warnings` bitmask,
 
 ---
 
-## Constants & Warnings — `itm/_constants.py`
+## Constants & Warnings — `pyitm_ng/_constants.py`
 
 14 warning bitmask flags:
 
@@ -139,8 +139,8 @@ Inspect with: `result.warnings & WARN__<flag>`
 
 ## Key Design Notes
 
-- **No CLI** — import `itm.predict_p2p` or `itm.predict_area`
+- **No CLI** — import `pyitm_ng.predict_p2p` or `pyitm_ng.predict_area`
 - **Warning system** — bitmask accumulates across all stages; inspect individual flags with `&`
 - **Naming convention** — pseudo-LaTeX underscores: `h_e__meter`, `A_ref__db`, `d__km`
 - **Two modes** — Point-to-Point (explicit terrain profile) vs. Area (distance + empirical δh)
-- **CI** — GitHub Actions runs `pytest -v` and `ruff check itm/` on every push/PR to main
+- **CI** — GitHub Actions runs `pytest -v` and `ruff check pyitm_ng/` on every push/PR to main

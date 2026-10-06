@@ -1,14 +1,14 @@
-# itm/itm.py
+# pyitm_ng/itm.py
 from __future__ import annotations
 import logging
-from itm._constants import (
+from pyitm_ng._constants import (
     WARN__TX_TERMINAL_HEIGHT,
     WARN__RX_TERMINAL_HEIGHT,
     WARN__FREQUENCY,
     MODE__P2P,
     MODE__AREA,
 )
-from itm.models import (
+from pyitm_ng.models import (
     Climate,
     Polarization,
     SitingCriteria,
@@ -16,9 +16,9 @@ from itm.models import (
     IntermediateValues,
     PropagationResult,
 )
-from itm.terrain import quick_pfl, initialize_area
-from itm.propagation import initialize_point_to_point, longley_rice, free_space_loss
-from itm.variability import variability
+from pyitm_ng.terrain import quick_pfl, initialize_area
+from pyitm_ng.propagation import initialize_point_to_point, longley_rice, free_space_loss
+from pyitm_ng.variability import variability
 
 logger = logging.getLogger(__name__)
 

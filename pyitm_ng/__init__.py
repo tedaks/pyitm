@@ -1,4 +1,4 @@
-# itm/__init__.py
+# pyitm_ng/__init__.py
 """
 Pure-Python port of the ITS Irregular Terrain Model (ITM / Longley-Rice).
 
@@ -8,8 +8,8 @@ Public entry points: `predict_p2p`, `predict_area`, `predict_p2p_cr` and `predic
 Derived from NTIA's Irregular Terrain Model (ITM). Copyright NTIA.
 """
 
-from itm.itm import predict_p2p, predict_area, predict_p2p_cr, predict_area_cr
-from itm.models import (
+from pyitm_ng.itm import predict_p2p, predict_area, predict_p2p_cr, predict_area_cr
+from pyitm_ng.models import (
     Climate,
     Polarization,
     MDVar,
@@ -21,7 +21,7 @@ from itm.models import (
     Warnings,
 )
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"  # single source: pyproject.toml reads this
 
 __all__ = [
     "predict_p2p",

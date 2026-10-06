@@ -7,7 +7,7 @@ Tolerance: 0.01 dB.
 import csv
 import pathlib
 import pytest
-from itm import predict_area, Climate, Polarization, SitingCriteria
+from pyitm_ng import predict_area, Climate, Polarization, SitingCriteria
 
 ROOT = pathlib.Path(__file__).parent.parent
 

@@ -1,10 +1,9 @@
-# PyITM — Usage Guide
+# pyitm-ng — Usage Guide
 
 ## Installation
 
 ```bash
-cd /home/bortre/02-lab/sources/pyitm
-pip install -e ".[dev]"
+pip install pyitm-ng
 ```
 
 ---
@@ -15,7 +14,7 @@ Use when you have an explicit terrain elevation profile between TX and RX.
 
 ```python
 import numpy as np
-from itm import predict_p2p, Climate, Polarization, TerrainProfile
+from pyitm_ng import predict_p2p, Climate, Polarization, TerrainProfile
 
 # Build terrain profile manually
 elevations = np.zeros(101)          # 101 elevation points (100 intervals)
@@ -51,7 +50,7 @@ print(result.warnings)   # bitmask; 0 = no warnings
 Use when you don't have a terrain profile — just distance and an empirical terrain roughness value.
 
 ```python
-from itm import predict_area, Climate, Polarization, SitingCriteria
+from pyitm_ng import predict_area, Climate, Polarization, SitingCriteria
 
 result = predict_area(
     h_tx__meter=100.0,
@@ -101,7 +100,7 @@ print(iv.mode)            # PropMode.LINE_OF_SIGHT / DIFFRACTION / TROPOSCATTER
 ## Checking Warnings
 
 ```python
-from itm._constants import (
+from pyitm_ng._constants import (
     WARN__TX_TERMINAL_HEIGHT,
     WARN__RX_TERMINAL_HEIGHT,
     WARN__FREQUENCY,

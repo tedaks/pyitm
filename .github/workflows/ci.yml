@@ -45,7 +45,7 @@ jobs:
 
       - name: Lint
         run: |
-          ruff check itm/
+          ruff check pyitm_ng/
           ruff check tests/
   differential:
     # predict_p2p / predict_area vs the NTIA/itm C++ reference on random inputs

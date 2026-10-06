@@ -1,10 +1,10 @@
-# itm/terrain.py
+# pyitm_ng/terrain.py
 from __future__ import annotations
 import math
 import numpy as np
-from itm._constants import PI, H_3__meter
-from itm.models import TerrainProfile
-from itm.variability import linear_least_squares_fit
+from pyitm_ng._constants import PI, H_3__meter
+from pyitm_ng.models import TerrainProfile
+from pyitm_ng.variability import linear_least_squares_fit
 
 
 def find_horizons(

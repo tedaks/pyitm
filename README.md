@@ -1,20 +1,29 @@
-# pyitm — ITS Irregular Terrain Model (Longley-Rice)
+# pyitm-ng — ITS Irregular Terrain Model (Longley-Rice)
 
 Pure-Python port of the NTIA ITM/Longley-Rice model for predicting terrestrial
 radiowave propagation loss at frequencies 20 MHz – 20 GHz.
 
+pyitm-ng is an independent port of the [NTIA/itm](https://github.com/NTIA/itm)
+C++ reference; it is not related to the `pyitm` package on PyPI.
+
 ## Installation
 
 ```bash
-pip install -e .
+pip install pyitm-ng
 ```
+
+```python
+import pyitm_ng
+```
+
+For development, from a clone: `pip install -e ".[dev]"`.
 
 ## Quick Start
 
 ### Point-to-Point Mode
 
 ```python
-from itm import predict_p2p, TerrainProfile, Climate, Polarization
+from pyitm_ng import predict_p2p, TerrainProfile, Climate, Polarization
 
 pfl = [99, 100.0] + [0.0] * 100  # 100 intervals, 100m resolution, flat terrain
 terrain = TerrainProfile.from_pfl(pfl)
@@ -40,7 +49,7 @@ print(f"Propagation loss: {result.A__db:.2f} dB")
 ### Area Mode
 
 ```python
-from itm import predict_area, Climate, Polarization, SitingCriteria
+from pyitm_ng import predict_area, Climate, Polarization, SitingCriteria
 
 result = predict_area(
     h_tx__meter=10.0,
@@ -81,7 +90,7 @@ See docstrings for full parameter documentation.
 ```bash
 pip install -e ".[dev]"
 python3 -m pytest
-ruff check itm/ tests/
+ruff check pyitm_ng/ tests/
 ```
 
 To also compare against the NTIA/itm C++ reference on random inputs (Linux, needs g++):
@@ -92,7 +101,7 @@ ITM_REFERENCE_LIB=$(tools/build_itm_reference.sh) python3 -m pytest tests/test_d
 
 ## Numerical fidelity
 
-pyitm reproduces the [NTIA/itm](https://github.com/NTIA/itm) C++ implementation exactly, verified in CI against the compiled C++ on thousands of random inputs. That includes the C++ model's sensitivity to tiny terrain changes: because terrain-fit bounds are truncated to whole profile points, a change of ~1e-9 m in a terrain profile, or in its resolution, can occasionally shift `A__db` by over 1 dB ([NTIA/itm#21](https://github.com/NTIA/itm/issues/21)). pyitm deliberately keeps this behaviour so its results match the reference; if you compare results across tools, small input differences can explain large output differences on some paths.
+pyitm-ng reproduces the [NTIA/itm](https://github.com/NTIA/itm) C++ implementation exactly, verified in CI against the compiled C++ on thousands of random inputs. That includes the C++ model's sensitivity to tiny terrain changes: because terrain-fit bounds are truncated to whole profile points, a change of ~1e-9 m in a terrain profile, or in its resolution, can occasionally shift `A__db` by over 1 dB ([NTIA/itm#21](https://github.com/NTIA/itm/issues/21)). pyitm-ng deliberately keeps this behaviour so its results match the reference; if you compare results across tools, small input differences can explain large output differences on some paths.
 
 ## References
 

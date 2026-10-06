@@ -1,5 +1,5 @@
 # tests/test_models.py
-from itm.models import (
+from pyitm_ng.models import (
     Climate,
     TerrainProfile,
     PropagationResult,

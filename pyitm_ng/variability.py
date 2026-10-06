@@ -1,16 +1,16 @@
-# itm/variability.py
+# pyitm_ng/variability.py
 from __future__ import annotations
 import math
 import numpy as np
 
-from itm._constants import (
+from pyitm_ng._constants import (
     a_9000__meter,
     WN_DENOM,
     THIRD,
     D_SCALE__meter,
     WARN__EXTREME_VARIABILITIES,
 )
-from itm.models import Climate
+from pyitm_ng.models import Climate
 
 _ALL_YEAR = (
     (-9.67, -0.62, 1.26, -9.21, -0.62, -0.39, 3.15),

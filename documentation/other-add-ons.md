@@ -13,7 +13,7 @@ Produces a list of elevation values between two lat/lon coordinates — exactly 
 ```python
 from srtm import Srtm1HeightMapCollection
 import numpy as np
-from itm import predict_p2p, TerrainProfile, Climate, Polarization
+from pyitm_ng import predict_p2p, TerrainProfile, Climate, Polarization
 
 elevations = Srtm1HeightMapCollection().get_elevation_profile(
     51.100, -1.200,   # TX lat/lon
@@ -54,7 +54,7 @@ Integration pattern — all additive on top of `result.A__db`:
 
 ```python
 import itur
-from itm import predict_p2p
+from pyitm_ng import predict_p2p
 
 result = predict_p2p(..., N_0=301.0, f__mhz=10000.0, return_intermediate=True)
 
@@ -100,7 +100,7 @@ Use as a cross-check on the same terrain profile:
 
 ```python
 from Py1812 import bt_loss
-from itm import predict_p2p
+from pyitm_ng import predict_p2p
 
 itm_result  = predict_p2p(terrain=terrain, f__mhz=900.0, ...)
 p1812_loss  = bt_loss(f=0.9, t=50, lat=51.5, lon=-1.2, pfl=pfl, ...)

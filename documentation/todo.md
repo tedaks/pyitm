@@ -1,14 +1,14 @@
-# PyITM — Recommendations & TODO
+# pyitm-ng — Recommendations & TODO
 
 ## Low effort
 
-- [ ] **Ground type presets** — Add `itm/ground_types.py` with a dict of common `epsilon`/`sigma` values (average, poor, good, fresh water, sea water, urban). Reduces lookup friction for the two most easily confused inputs.
+- [ ] **Ground type presets** — Add `pyitm_ng/ground_types.py` with a dict of common `epsilon`/`sigma` values (average, poor, good, fresh water, sea water, urban). Reduces lookup friction for the two most easily confused inputs.
 
 - [ ] **Frequency / climate presets** — Add reference dicts for typical `N_0` by region and `climate` by geography.
 
-- [ ] **Link budget helper** — Add `itm/link_budget.py` with a thin convenience function that takes TX power (dBm), TX/RX antenna gains (dBi), and a `PropagationResult`, and returns received power (dBm), and link margin (dB) given a noise floor.
+- [ ] **Link budget helper** — Add `pyitm_ng/link_budget.py` with a thin convenience function that takes TX power (dBm), TX/RX antenna gains (dBi), and a `PropagationResult`, and returns received power (dBm), and link margin (dB) given a noise floor.
 
-- [ ] **Batch area sweep** — Add a vectorized wrapper in `itm/itm.py` (or a helper module) that accepts a list of distances and runs `predict_area` for each, returning a list of `PropagationResult`. Useful for coverage vs. distance plots.
+- [ ] **Batch area sweep** — Add a vectorized wrapper in `pyitm_ng/itm.py` (or a helper module) that accepts a list of distances and runs `predict_area` for each, returning a list of `PropagationResult`. Useful for coverage vs. distance plots.
 
 ---
 
@@ -17,9 +17,9 @@
 - [x] **Confidence / reliability variability mode** — Done: `predict_p2p_cr` / `predict_area_cr` (0.1.0; C++-matching CR→TLS mapping and `mdvar` parameter in 0.2.0).
 
 - [ ] **Antenna gain parameters in API** — Add optional `tx_antenna_gain_dbi=0.0` and `rx_antenna_gain_dbi=0.0` to `predict_p2p` and `predict_area`. Add `A_eff__db` field to `PropagationResult` (= `A__db - tx_gain - rx_gain`). Keep `A__db` as the isotropic baseline for transparency.
-  - Files: `itm/models.py`, `itm/itm.py`
+  - Files: `pyitm_ng/models.py`, `pyitm_ng/itm.py`
 
-- [ ] **Ground clutter — clutter height correction** — Add a wrapper (e.g. `itm/clutter.py`) that accepts a clutter environment type per terminal (`open`, `rural`, `suburban`, `urban`, `dense_urban`, `forest`) and reduces the effective antenna height before calling `predict_p2p` or `predict_area`. Reference clutter heights: rural 4 m, suburban 9 m, urban 20 m, dense urban 30 m, forest 15 m. This feeds back into the ITM geometry (horizon angles, diffraction) rather than being a blind additive correction.
+- [ ] **Ground clutter — clutter height correction** — Add a wrapper (e.g. `pyitm_ng/clutter.py`) that accepts a clutter environment type per terminal (`open`, `rural`, `suburban`, `urban`, `dense_urban`, `forest`) and reduces the effective antenna height before calling `predict_p2p` or `predict_area`. Reference clutter heights: rural 4 m, suburban 9 m, urban 20 m, dense urban 30 m, forest 15 m. This feeds back into the ITM geometry (horizon angles, diffraction) rather than being a blind additive correction.
 
 - [ ] **P.2108 integration — Height Gain Terminal Correction** (`proplib-p2108`) — For `predict_p2p`, apply `P2108.HeightGainTerminalCorrectionModel(f__ghz, h__meter, w_s__meter, R__meter, clutter_type)` per terminal and add the result to `A__db`. Frequency range: 0.03–3 GHz. Key inputs: clutter height `R__meter` (suburban ~9 m, urban ~15–20 m, dense urban ~25–30 m) and street width `w_s__meter` (residential ~10–15 m, arterial ~20–30 m).
 
@@ -31,7 +31,7 @@
 
 ## High effort
 
-- [ ] **SRTM terrain ingestion** — Add `itm/terrain_io.py` with a helper that accepts start/end coordinates (lat/lon), fetches SRTM elevation data (via `elevation` or `rasterio`), and returns a `TerrainProfile` ready for `predict_p2p`. This makes the library self-contained for real-world paths without manual profile construction.
+- [ ] **SRTM terrain ingestion** — Add `pyitm_ng/terrain_io.py` with a helper that accepts start/end coordinates (lat/lon), fetches SRTM elevation data (via `elevation` or `rasterio`), and returns a `TerrainProfile` ready for `predict_p2p`. This makes the library self-contained for real-world paths without manual profile construction.
 
 - [ ] **Antenna pattern support** — Extend the antenna gain feature to support directional/angle-dependent gain. Use `theta_hzn` from `IntermediateValues` as the path elevation angle at each terminal. Accept a gain function or lookup table indexed by elevation angle (degrees → dBi). Relevant for Yagi, parabolic, and phased-array antennas.
 

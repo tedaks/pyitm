@@ -17,7 +17,7 @@ Received Power (dBm) = TX Power (dBm) + TX Gain (dBi) + RX Gain (dBi) - A__db
 If you just need a scalar gain at each end, no changes to pyitm are needed:
 
 ```python
-from itm import predict_p2p, Climate, Polarization, TerrainProfile
+from pyitm_ng import predict_p2p, Climate, Polarization, TerrainProfile
 
 result = predict_p2p(
     h_tx__meter=30.0,
@@ -54,7 +54,7 @@ print(f"Rx power:       {received_power_dbm:.2f} dBm")
 
 If you want gain baked into the result, the changes are minimal and confined to two files.
 
-### `itm/models.py` — extend `PropagationResult`
+### `pyitm_ng/models.py` — extend `PropagationResult`
 
 ```python
 @dataclass
@@ -65,7 +65,7 @@ class PropagationResult:
     intermediate: IntermediateValues | None = None
 ```
 
-### `itm/itm.py` — add gain parameters to both functions
+### `pyitm_ng/itm.py` — add gain parameters to both functions
 
 ```python
 def predict_p2p(
