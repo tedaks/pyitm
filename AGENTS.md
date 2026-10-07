@@ -17,7 +17,7 @@ Requires Python ≥ 3.10 and numpy.
 ## Verification
 
 ```bash
-python3 -m pytest          # all 172 tests must pass (6 differential tests skip without ITM_REFERENCE_LIB); mypy must be clean
+python3 -m pytest          # all 196 tests must pass (6 differential tests skip without ITM_REFERENCE_LIB); mypy must be clean
 ruff check pyitm_ng/            # zero lint errors
 ```
 
@@ -43,7 +43,10 @@ tests/
   test_p2p.py      — integration: every row of data/synthetic/p2p.csv against data/synthetic/pfls.csv
   test_area.py     — integration: every row of data/synthetic/area.csv
   test_ntia_reference.py — NTIA/itm's own reference CSVs (tests/data/ntia/, real terrain)
-  test_differential.py — random inputs vs the C++ reference (skips without ITM_REFERENCE_LIB)
+  test_differential.py — random inputs over the full valid ranges vs the C++ reference (skips without ITM_REFERENCE_LIB)
+  test_edge_cases.py — edges of the valid input space, pinned to C++ values
+  test_validation.py — rejection of non-finite, malformed and mistyped input
+  test_cfloat.py   — C-semantics math helpers (_cfloat) vs libm
 tools/
   build_itm_reference.sh — builds NTIA/itm (pinned commit) as libitm.so
   test_*.py        — unit tests per module
@@ -61,9 +64,11 @@ The port reproduces the NTIA/itm C++ reference (master `183ad95`) operation for 
 
 - Do not adopt rounding fixes such as the unmerged NTIA/itm#22, or any other deviation from the C++ arithmetic, even where it is arguably more robust.
 - Vectorize only if the result is bit-identical to the C++ order of operations (e.g. `np.cumsum` for `d += xi`, not `i * xi`). Sequential `+=` reductions stay sequential loops (no `np.sum` / `np.dot` / `.mean()`).
-- Square with `sq(x)` (from `_constants`) wherever the C++ has `pow(x, 2)`. GCC compiles that to `x*x`; Python `x**2` calls libm `pow()`, which differs from `x*x` in the last bit for ~0.1% of inputs. Other exponents stay `**` / `pow()`: the compiled C++ calls `pow()` for those too.
+- Square with `sq(x)` (from `_cfloat`) wherever the C++ has `pow(x, 2)`. GCC compiles that to `x*x`; Python `x**2` calls libm `pow()`, which differs from `x*x` in the last bit for ~0.1% of inputs. Other exponents stay `**` / `pow()`: the compiled C++ calls `pow()` for those too.
 - Keep scalar code on Python floats: read array elements with `float(...)`. A numpy scalar silently turns complex arithmetic into `np.complex128`, whose division is not the C++ / CPython algorithm (`test_p2p_returns_python_floats` guards this).
-- Where the C++ yields an IEEE ±inf / nan instead of failing (division by zero, `log(0)`), produce the same value (`_ieee_div`, `_c_max`, `iccdf`) instead of letting Python raise.
+- Scalar math goes through `pyitm_ng/_cfloat.py`, never `math.*`, builtin `pow`/`**`, `min`/`max` or `cmath` directly. The C++ never raises: libm returns -inf/nan/±inf out of domain, and the `MAX`/`MIN`/`DIM` macros pick an operand by a plain comparison (`MAX(nan, 0)` is 0, Python's `max(nan, 0)` is nan; `DIM` gives 0 for nan, C99 `fdim` gives nan). Map each site to the exact C construct and argument order: `c_max`/`c_min`/`c_dim`/`c_fdim`, `c_log`/`c_log10`/`c_sqrt`/`c_exp`/`c_pow`/`c_sin`/`c_cos`, `ieee_div`, and `c_csqrt` (glibc's `csqrt` line for line; CPython's `cmath.sqrt` differs for purely imaginary arguments). `tests/test_cfloat.py` checks each against libm. These cases are reachable on valid input (Vogler's B_0 < 0 at high antennas, 2-point profiles, epsilon = 1).
+- The differential samples the whole documented input space with boundary values over-sampled (`ITM_DIFF_SEED` varies the draw). Never narrow it to make it pass: every edge bug so far sat outside the old comfortable ranges.
+- `Warnings.REFERENCE_ATTENUATION_NAN` (bit 1<<30, outside NTIA's range) is pyitm-ng's only addition to the outputs: set where the C++ turns a nan reference attenuation into 0 dB via `MAX(A_ref, 0)`. `A__db` stays bit-identical; the differential compares NTIA's warning bits only (`PYITM_ONLY_WARNINGS`).
 - `tests/test_differential.py` is the arbiter. Run it with `ITM_DIFF_EXACT=1`: `A__db` must be bit-identical, not just within 0.01 dB (a reordered reduction stays well inside 0.01 dB, so only exact mode catches it). CI runs it that way. The reference is built with `-ffp-contract=off -fcx-fortran-rules` (no fused multiply-adds, complex division inline rather than libgcc's FMA-using `__divdc3`), so the C++ is plain IEEE on every architecture; keep it that way.
 
 Deliberate deviations from the C++ (the only ones). All are input checks that reject input the C++ would turn into undefined behaviour, a crash, nan, or a plausible wrong answer. None changes arithmetic on valid input (the exact differential only uses valid input and must stay bit-identical):

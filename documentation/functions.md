@@ -130,6 +130,8 @@ Inspect with: `result.warnings & WARN__<flag>`
 | `test_ntia_reference.py` | p2p and area vs. the CSVs shipped with NTIA/itm (`tests/data/ntia/`, real terrain); must round to the published value |
 | `test_differential.py` | All four entry points (p2p, area, p2p CR, area CR) vs. the C++ reference on random inputs, plus underflowing percentiles; `ITM_DIFF_EXACT=1` requires bit-identical results (CI); skips unless `ITM_REFERENCE_LIB` is set |
 | `test_itm.py` | Input validation, warning flags, intermediate values |
+| `test_edge_cases.py` | Edges of the valid input space (2-point profiles, epsilon = 1, NaN reference attenuation, TerrainProfile hash/pickle), pinned to C++ values |
+| `test_cfloat.py` | C-semantics math helpers (`_cfloat`) bit for bit against libm |
 | `test_validation.py` | Rejection of non-finite numbers, bad terrain/PFL, non-integer enum arguments; immutable `TerrainProfile`; `Warnings` result type |
 | `test_terrain.py` | Horizon finding, delta-h, PFL parsing |
 | `test_propagation.py` | Free-space loss, Fresnel, H₀, ground impedance |

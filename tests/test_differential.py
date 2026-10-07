@@ -6,7 +6,8 @@ this catches numeric divergences (e.g. rounding that flips an int() truncation)
 that they miss.
 
 Skipped unless ITM_REFERENCE_LIB points at a libitm.so built by
-tools/build_itm_reference.sh. ITM_DIFF_CASES sets the case count (default 1000).
+tools/build_itm_reference.sh. ITM_DIFF_CASES sets the case count (default 1000), ITM_DIFF_SEED the draw (default 0).
+Inputs cover the full documented ranges, with boundary values over-sampled.
 Tolerance: 0.01 dB; warning bitmasks and error/no-error must match exactly.
 ITM_DIFF_EXACT=1 tightens the tolerance to bit-identical A__db, which is what the
 fidelity policy in CLAUDE.md requires (a reordered reduction stays well inside
@@ -21,6 +22,7 @@ import random
 import numpy as np
 import pytest
 
+from pyitm_ng._constants import PYITM_ONLY_WARNINGS
 from pyitm_ng import (
     Climate,
     Polarization,
@@ -56,44 +58,70 @@ def lib():
     return lib
 
 
+# The whole documented input space, not a comfortable sub-range: every bug found by
+# widening this (2-point profiles, h_tx near 3000 m, epsilon == 1, NaN swallowed by
+# MAX/MIN at extreme percentiles) sat outside the old 0.5-300 m / 1-99 % / 10-600 point
+# ranges. A share of draws is pinned to the boundary values themselves.
+SEED = int(os.environ.get("ITM_DIFF_SEED", "0"))
+
+
+def _pick(rng, lo, hi, edges, log=False, p_edge=0.15):
+    if rng.random() < p_edge:
+        return rng.choice(edges)
+    if log:
+        return math.exp(rng.uniform(math.log(lo), math.log(hi)))
+    return rng.uniform(lo, hi)
+
+
+def _height(rng):  # valid: [0.5, 3000] m
+    return _pick(rng, 0.5, 3000.0, [0.5, 1.0, 1000.0, 2999.0, 3000.0], log=True)
+
+
+def _percent(rng):  # valid: (0, 100)
+    return _pick(rng, 0.001, 99.999, [0.001, 0.01, 0.1, 1.0, 50.0, 99.0, 99.9, 99.99, 99.999], p_edge=0.25)
+
+
 def _common(rng):
     # climate, N_0, f__mhz, pol, epsilon, sigma, mdvar, time, location, situation
     return [
         rng.randint(1, 7),
-        rng.uniform(250.0, 400.0),
-        rng.uniform(20.0, 20000.0),
+        _pick(rng, 250.0, 400.0, [250.0, 301.0, 400.0]),
+        _pick(rng, 20.0, 20000.0, [20.0, 40.0, 10000.0, 20000.0], log=True),
         rng.randint(0, 1),
-        rng.uniform(1.0, 80.0),
-        rng.uniform(1e-4, 5.0),
+        _pick(rng, 1.0, 100.0, [1.0, 80.0], log=True),
+        _pick(rng, 1e-5, 10.0, [1e-5, 5.0], log=True),
         rng.choice(MDVARS),
-        rng.uniform(1.0, 99.0),
-        rng.uniform(1.0, 99.0),
-        rng.uniform(1.0, 99.0),
+        _percent(rng),
+        _percent(rng),
+        _percent(rng),
     ]
 
 
 def _p2p_cases():
-    rng = random.Random(20261006)
+    rng = random.Random(20261006 + SEED)
     for k in range(N_CASES):
-        n = rng.randint(10, 600)
-        resolution = rng.uniform(10.0, 1000.0)
-        step_sd = rng.choice([0.5, 3.0, 15.0])
-        elevs = np.cumsum(np.random.default_rng(k).normal(0.0, step_sd, n + 1))
-        elevs += rng.uniform(0.0, 500.0)
+        if rng.random() < 0.2:
+            n = rng.choice([1, 1, 2, 3, 5, 10])  # 1 interval = 2 points, the minimum
+        else:
+            n = rng.randint(1, 600)
+        resolution = _pick(rng, 1.0, 2000.0, [1.0, 10.0, 1000.0], log=True)
+        step_sd = rng.choice([0.5, 3.0, 15.0, 60.0])
+        elevs = np.cumsum(np.random.default_rng(k + 1_000_003 * SEED).normal(0.0, step_sd, n + 1))
+        elevs += rng.uniform(-50.0, 3000.0)
         pfl = [float(n), resolution] + elevs.tolist()
-        yield k, pfl, [rng.uniform(0.5, 300.0), rng.uniform(0.5, 300.0)] + _common(rng)
+        yield k, pfl, [_height(rng), _height(rng)] + _common(rng)
 
 
 def _area_cases():
-    rng = random.Random(20261007)
+    rng = random.Random(20261007 + SEED)
     for k in range(N_CASES):
         yield k, [
-            rng.uniform(0.5, 300.0),
-            rng.uniform(0.5, 300.0),
+            _height(rng),
+            _height(rng),
             rng.randint(0, 2),
             rng.randint(0, 2),
-            rng.uniform(1.0, 2000.0),
-            rng.uniform(0.0, 500.0),
+            _pick(rng, 0.001, 2000.0, [0.001, 1.0, 1000.0, 2000.0], log=True),
+            _pick(rng, 0.0, 3000.0, [0.0, 0.001, 3000.0]),
         ] + _common(rng)
 
 
@@ -111,8 +139,8 @@ def _compare(cpp, py, label, mismatches):
         mismatches.append(f"{label}: C++ {cpp_db!r} dB, Python {py.A__db!r} dB (not bit-identical)")
     elif abs(cpp_db - py.A__db) > TOL__DB:
         mismatches.append(f"{label}: C++ {cpp_db:.4f} dB, Python {py.A__db:.4f} dB")
-    elif cpp_warn != py.warnings:
-        mismatches.append(f"{label}: C++ warnings {cpp_warn:#x}, Python {py.warnings:#x}")
+    elif cpp_warn != py.warnings & ~PYITM_ONLY_WARNINGS:
+        mismatches.append(f"{label}: C++ warnings {cpp_warn:#x}, Python {int(py.warnings):#x}")
 
 
 def test_p2p_matches_cpp_reference(lib):

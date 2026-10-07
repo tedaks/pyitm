@@ -89,6 +89,8 @@ class Warnings(IntFlag):
     RX_HORIZON_DISTANCE_2 = 0x1000
     EXTREME_VARIABILITIES = 0x2000
     SURFACE_REFRACTIVITY = 0x4000
+    # pyitm-ng only, see _constants.WARN__REFERENCE_ATTENUATION_NAN
+    REFERENCE_ATTENUATION_NAN = 0x40000000
     NONE = 0
 
 
@@ -130,7 +132,14 @@ class TerrainProfile:
         return self.resolution == other.resolution and np.array_equal(self.elevations, other.elevations)
 
     def __hash__(self) -> int:
-        return hash((self.resolution, self.elevations.tobytes()))
+        # + 0.0 turns -0.0 into +0.0: np.array_equal treats them as equal, so the hash
+        # must too (equal objects, equal hashes).
+        return hash((self.resolution, (self.elevations + 0.0).tobytes()))
+
+    def __reduce__(self) -> tuple[Any, ...]:
+        # Rebuild through __init__ so __post_init__ runs again: plain unpickling would
+        # restore a writable array (multiprocessing pickles every argument).
+        return (type(self), (np.array(self.elevations), self.resolution))
 
     @classmethod
     def from_pfl(cls, pfl: list[float]) -> TerrainProfile:
