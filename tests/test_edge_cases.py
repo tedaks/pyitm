@@ -82,3 +82,21 @@ def test_terrain_pickle_round_trip_stays_immutable():
     assert u == t and hash(u) == hash(t)
     with pytest.raises(ValueError, match="read-only"):
         u.elevations[0] = 1.0
+
+
+@pytest.mark.parametrize("pol", [Polarization.HORIZONTAL, Polarization.VERTICAL])
+@pytest.mark.parametrize("epsilon", [1.0, 1.0 + 2.0**-52, 100.0])
+@pytest.mark.parametrize("sigma", [5e-324, 1e-300, 1e-5, 10.0])
+def test_ground_impedance_extremes_never_divide_by_zero(pol, epsilon, sigma):
+    """(sin_psi + Z_g) in line_of_sight_loss is never 0: sin_psi > 0 and Re(Z_g) >= 0 for
+    both polarizations (pol=1 divides csqrt(ep_r - 1) by ep_r, which stays in the right
+    half-plane). Smallest sigma, epsilon floor, 20 GHz, line-of-sight path: the only
+    allowed failure is the C++'s own ground-impedance error (1013) as ValueError.
+    The exact differential checks the same grid against the C++."""
+    pfl = [10.0, 10.0] + [100.0] * 11
+    try:
+        r = _p2p(pfl, 30.0, 30.0, 20000.0, pol=pol, epsilon=epsilon, sigma=sigma)
+    except ValueError as e:
+        assert "Ground impedance" in str(e)
+    else:
+        assert isinstance(r.A__db, float)

@@ -19,7 +19,7 @@ python3 -m pytest
 ruff check pyitm_ng/
 ```
 
-All 196 tests must pass before any commit, and `mypy` (strict, configured in `pyproject.toml`) must be clean (the 6 in `tests/test_differential.py` skip unless `ITM_REFERENCE_LIB` is set).
+All 234 tests must pass before any commit, and `mypy` (strict, configured in `pyproject.toml`) must be clean (the 7 in `tests/test_differential.py` skip unless `ITM_REFERENCE_LIB` is set).
 
 ```bash
 # Differential test against the NTIA/itm C++ reference (Linux, needs g++); exact = bit-identical

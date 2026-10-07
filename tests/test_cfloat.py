@@ -12,7 +12,9 @@ import pytest
 
 from pyitm_ng._cfloat import (
     c_cos, c_csqrt, c_dim, c_exp, c_fdim, c_log, c_log10, c_max, c_min, c_pow, c_sin, c_sqrt,
+    ieee_div, sq,
 )
+import numpy as np
 
 NAN, INF = math.nan, math.inf
 _libm_path = ctypes.util.find_library("m")
@@ -102,3 +104,27 @@ def test_dim_and_fdim():
     assert c_dim(NAN, 1.0) == 0.0 and c_dim(3.0, 1.0) == 2.0 and c_dim(1.0, 3.0) == 0.0
     assert math.isnan(c_fdim(NAN, 1.0)) and math.isnan(c_fdim(1.0, NAN))
     assert c_fdim(3.0, 1.0) == 2.0 and c_fdim(1.0, 3.0) == 0.0
+
+
+def test_ieee_div_matches_ieee754():
+    """C's a / b never traps: x/0 -> +-inf by the signs of both operands, 0/0 and nan -> nan.
+    numpy's divide is IEEE division, so it is the oracle on every platform."""
+    vals = _values(300) + [5e-324, -5e-324]
+    with np.errstate(all="ignore"):
+        for a in vals:
+            for b in vals[:40] + [0.0, -0.0, 5e-324]:
+                assert _same(ieee_div(a, b), float(np.divide(np.float64(a), np.float64(b)))), (a, b)
+
+
+@pytest.mark.parametrize("a, b, want", [
+    (1.0, 0.0, INF), (1.0, -0.0, -INF), (-1.0, 0.0, -INF), (-1.0, -0.0, INF),
+    (INF, 0.0, INF), (-INF, -0.0, INF), (0.0, 0.0, NAN), (-0.0, 0.0, NAN), (NAN, 0.0, NAN),
+    (1.0, 2.0, 0.5),
+])
+def test_ieee_div_zero_divisor(a, b, want):
+    assert _same(ieee_div(a, b), want)
+
+
+def test_sq_is_one_multiply():
+    for x in _values(2000):
+        assert _same(sq(x), x * x)
