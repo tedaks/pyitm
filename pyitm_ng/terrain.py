@@ -2,13 +2,14 @@
 from __future__ import annotations
 import math
 import numpy as np
+import numpy.typing as npt
 from pyitm_ng._constants import PI, H_3__meter, sq
 from pyitm_ng.models import TerrainProfile
 from pyitm_ng.variability import linear_least_squares_fit
 
 
 def find_horizons(
-    elevations: np.ndarray,
+    elevations: npt.NDArray[np.float64],
     resolution: float,
     h__meter: tuple[float, float],
     a_e__meter: float,
@@ -61,7 +62,7 @@ def find_horizons(
 
 
 def compute_delta_h(
-    elevations: np.ndarray,
+    elevations: npt.NDArray[np.float64],
     resolution: float,
     d_start__meter: float,
     d_end__meter: float,
@@ -90,11 +91,15 @@ def compute_delta_h(
     i = int(x_start_idx)
     x_pos = x_start_idx - float(i + 1)  # in range (-1, 0]
 
+    # C++: while (x_pos > 0 && i + 1 < np) { x_pos -= 1; i++; }. Every subtraction
+    # but the last is exact (x_pos > 1 and 1.0 is a multiple of its ulp), so k
+    # repeated -= 1.0 equal one x_pos - k: same bits, without a step per point.
     s_elevations = []
     for _ in range(n):
-        while x_pos > 0.0 and (i + 1) < np_:
-            x_pos -= 1.0
-            i += 1
+        if x_pos > 0.0 and (i + 1) < np_:
+            k = min(math.ceil(x_pos), np_ - 1 - i)
+            x_pos -= float(k)
+            i += k
         s_elevations.append(
             float(elevations[i + 1]) + (float(elevations[i + 1]) - float(elevations[i])) * x_pos
         )
@@ -108,11 +113,9 @@ def compute_delta_h(
 
     # Residuals with the fitted line stepped in C++ order (ComputeDeltaH.cpp:65-70);
     # the closed form y1 + slope*j is not bit-identical to repeated += slope.
-    diffs_list = []
-    for j in range(n):
-        diffs_list.append(float(s_arr[j]) - fit_y1)
-        fit_y1 += fit_slope
-    diffs = np.array(diffs_list)
+    # np.add.accumulate steps fit_y1 += fit_slope strictly in sequence.
+    fit_line = np.add.accumulate(np.concatenate(([fit_y1], np.full(n - 1, fit_slope))))
+    diffs = s_arr - fit_line
 
     # q10: p10-th largest value (≈ 90th percentile)
     q10 = float(-np.partition(-diffs, p10 - 1)[p10 - 1])

@@ -4,6 +4,7 @@ import logging
 from dataclasses import dataclass
 from enum import IntFlag, IntEnum
 import numpy as np
+import numpy.typing as npt
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +66,7 @@ class Warnings(IntFlag):
 class TerrainProfile:
     """Terrain elevation profile in PFL format."""
 
-    elevations: np.ndarray
+    elevations: npt.NDArray[np.float64]
     resolution: float
 
     @classmethod

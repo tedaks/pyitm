@@ -2,6 +2,7 @@
 from __future__ import annotations
 import math
 import numpy as np
+import numpy.typing as npt
 
 from pyitm_ng._constants import (
     sq,
@@ -75,7 +76,7 @@ def sigma_h_function(delta_h__meter: float) -> float:
 
 
 def linear_least_squares_fit(
-    elevations: np.ndarray,
+    elevations: npt.NDArray[np.float64],
     resolution: float,
     d_start: float,
     d_end: float,
@@ -105,15 +106,19 @@ def linear_least_squares_fit(
     sum_y = 0.5 * (float(elevations[i_start]) + float(elevations[i_end]))
     scaled_sum_y = 0.5 * (float(elevations[i_start]) - float(elevations[i_end])) * mid_shifted_index
 
-    # Sequential accumulation in C++ order (LinearLeastSquaresFit.cpp); np.sum /
-    # np.dot reorder the additions and are not bit-identical.
-    i = 2
-    while i <= x_length:
-        i_start += 1
-        mid_shifted_index += 1.0
-        sum_y += float(elevations[i_start])
-        scaled_sum_y += float(elevations[i_start]) * mid_shifted_index
-        i += 1
+    # C++ loop (LinearLeastSquaresFit.cpp): for i = 2..x_length { i_start++;
+    # mid_shifted_index++; sum_y += y; scaled_sum_y += y * mid_shifted_index; }.
+    # np.add.accumulate adds strictly left to right, so it reproduces the sequential
+    # += bit for bit (np.sum / np.dot are pairwise and do not). mid_shifted_index
+    # stays a half-integer, so m0 + k is exact, and the products are elementwise.
+    n_inner = int(x_length) - 1
+    if n_inner > 0:
+        inner = np.asarray(elevations[i_start + 1 : i_start + 1 + n_inner], dtype=float)
+        shifted = mid_shifted_index + np.arange(1.0, n_inner + 1.0)
+        sum_y = float(np.add.accumulate(np.concatenate(([sum_y], inner)))[-1])
+        scaled_sum_y = float(
+            np.add.accumulate(np.concatenate(([scaled_sum_y], inner * shifted)))[-1]
+        )
 
     sum_y /= x_length
     scaled_sum_y = scaled_sum_y * 12.0 / ((x_length * x_length + 2.0) * x_length)

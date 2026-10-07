@@ -7,10 +7,18 @@ name = "pyitm-ng"
 dynamic = ["version"]
 description = "Pure-Python port of the NTIA Irregular Terrain Model (ITM / Longley-Rice), verified against the C++ reference"
 readme = "README.md"
+license = "MIT AND NTIA-PD"
 license-files = ["LICENSE.md"]
 authors = [{ name = "tedaks" }]
 requires-python = ">=3.10"
-dependencies = ["numpy>=1.21"]
+# Floors = first numpy release with wheels for each supported Python (CI "min-deps" job).
+dependencies = [
+    "numpy>=1.21.2; python_version < '3.11'",
+    "numpy>=1.23.2; python_version == '3.11'",
+    "numpy>=1.26.0; python_version == '3.12'",
+    "numpy>=2.1.0; python_version == '3.13'",
+    "numpy>=2.3.2; python_version >= '3.14'",
+]
 keywords = ["itm", "longley-rice", "radio propagation", "path loss", "ntia", "rf"]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -33,7 +41,7 @@ Changelog = "https://github.com/tedaks/pyitm/blob/main/CHANGELOG.md"
 "Upstream (NTIA/itm)" = "https://github.com/NTIA/itm"
 
 [project.optional-dependencies]
-dev = ["pytest", "ruff"]
+dev = ["pytest", "ruff", "mypy"]
 
 [tool.setuptools]
 packages = ["pyitm_ng"]
@@ -49,4 +57,10 @@ testpaths = ["tests"]
 
 [tool.ruff.lint]
 # Explicit so new ruff releases don't change the rule set under CI (0.16 widened the defaults).
-select = ["E4", "E7", "E9", "F"]
+# B (bugbear), UP (pyupgrade), NPY (numpy-specific) catch real defects. RUF/SIM/I are
+# style-only here (and SIM would restructure code transcribed from the C++), so not enabled.
+select = ["E4", "E7", "E9", "F", "B", "UP", "NPY"]
+
+[tool.mypy]
+strict = true
+files = ["pyitm_ng"]

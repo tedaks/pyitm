@@ -17,7 +17,7 @@ Requires Python ≥ 3.10 and numpy.
 ## Verification
 
 ```bash
-python3 -m pytest          # all 90 tests must pass (5 differential tests skip without ITM_REFERENCE_LIB)
+python3 -m pytest          # all 93 tests must pass (6 differential tests skip without ITM_REFERENCE_LIB); mypy must be clean
 ruff check pyitm_ng/            # zero lint errors
 ```
 
@@ -40,14 +40,14 @@ pyitm_ng/
   propagation.py   — core propagation (LOS, diffraction, troposcatter, longley_rice)
   itm.py           — public API: predict_p2p, predict_area, predict_p2p_cr, predict_area_cr
 tests/
-  test_p2p.py      — integration: every row of p2p.csv against pfls.csv terrain data
-  test_area.py     — integration: every row of area.csv
+  test_p2p.py      — integration: every row of data/synthetic/p2p.csv against data/synthetic/pfls.csv
+  test_area.py     — integration: every row of data/synthetic/area.csv
   test_ntia_reference.py — NTIA/itm's own reference CSVs (tests/data/ntia/, real terrain)
   test_differential.py — random inputs vs the C++ reference (skips without ITM_REFERENCE_LIB)
 tools/
   build_itm_reference.sh — builds NTIA/itm (pinned commit) as libitm.so
   test_*.py        — unit tests per module
-p2p.csv / pfls.csv / area.csv  — reference data (do not modify)
+tests/data/synthetic/          — synthetic reference cases (do not modify)
 tests/data/ntia/               — NTIA/itm reference data, verbatim from master 183ad95 (do not modify)
 ```
 
@@ -64,13 +64,14 @@ The port reproduces the NTIA/itm C++ reference (master `183ad95`) operation for 
 - Square with `sq(x)` (from `_constants`) wherever the C++ has `pow(x, 2)`. GCC compiles that to `x*x`; Python `x**2` calls libm `pow()`, which differs from `x*x` in the last bit for ~0.1% of inputs. Other exponents stay `**` / `pow()`: the compiled C++ calls `pow()` for those too.
 - Keep scalar code on Python floats: read array elements with `float(...)`. A numpy scalar silently turns complex arithmetic into `np.complex128`, whose division is not the C++ / CPython algorithm (`test_p2p_returns_python_floats` guards this).
 - Where the C++ yields an IEEE ±inf / nan instead of failing (division by zero, `log(0)`), produce the same value (`_ieee_div`, `_c_max`, `iccdf`) instead of letting Python raise.
-- `tests/test_differential.py` is the arbiter. Run it with `ITM_DIFF_EXACT=1`: `A__db` must be bit-identical, not just within 0.01 dB (a reordered reduction stays well inside 0.01 dB, so only exact mode catches it). CI runs it that way. The reference is built with `-O2` and no `-march`, so the compiler never contracts into FMA; keep it that way.
+- `tests/test_differential.py` is the arbiter. Run it with `ITM_DIFF_EXACT=1`: `A__db` must be bit-identical, not just within 0.01 dB (a reordered reduction stays well inside 0.01 dB, so only exact mode catches it). CI runs it that way. The reference is built with `-ffp-contract=off -fcx-fortran-rules` (no fused multiply-adds, complex division inline rather than libgcc's FMA-using `__divdc3`), so the C++ is plain IEEE on every architecture; keep it that way.
 
 Deliberate deviations from the C++ (the only ones). Both are input checks at an entry point where the C++ has undefined behaviour; neither changes arithmetic on valid input:
 
 - `predict_p2p` / `predict_p2p_cr` raise `ValueError` for a terrain profile with fewer than 2 points (the C++ reads past the array).
 - `TerrainProfile.from_pfl` clamps a PFL whose header declares more points than it contains, and logs a warning (the C++ reads out of bounds).
-- If upstream changes its arithmetic, update the pinned commit in `tools/build_itm_reference.sh` and follow it.
+- Track merged upstream changes, never unmerged proposals. `.github/workflows/upstream.yml` checks NTIA/itm `master` weekly and opens an issue when it no longer equals the pin. To follow it: diff the upstream change, port it, update `ITM_COMMIT` in `tools/build_itm_reference.sh` (and the pin quoted in README, CLAUDE.md, AGENTS.md, LICENSE.md; `tests/test_docs_sync.py` checks they agree), then the bit-exact differential must pass.
+- This section is duplicated verbatim in CLAUDE.md and AGENTS.md (`tests/test_docs_sync.py` fails if they drift); edit both.
 
 ## Conventions
 

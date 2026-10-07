@@ -1,5 +1,7 @@
 # pyitm_ng/itm.py
 from __future__ import annotations
+
+import numpy as np
 from pyitm_ng._constants import (
     WARN__TX_TERMINAL_HEIGHT,
     WARN__RX_TERMINAL_HEIGHT,
@@ -138,9 +140,8 @@ def predict_p2p(
     p10 = int(0.1 * np_)
     # Sequential sum in C++ order (itm_p2p.cpp:208-211); np.mean is pairwise and
     # differs in the last bit, which can flip the int() truncation in quick_pfl.
-    h_sys__meter = 0.0
-    for i in range(p10, np_ - p10 + 1):
-        h_sys__meter += float(terrain.elevations[i])
+    # np.add.accumulate is the same left-to-right sequence (0.0 + e0 == e0 exactly).
+    h_sys__meter = float(np.add.accumulate(terrain.elevations[p10 : np_ - p10 + 1])[-1])
     h_sys__meter = h_sys__meter / (np_ - 2 * p10 + 1)
 
     Z_g, gamma_e, N_s = initialize_point_to_point(

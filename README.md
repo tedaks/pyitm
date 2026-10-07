@@ -8,9 +8,14 @@ C++ reference; it is not related to the `pyitm` package on PyPI.
 
 ## Installation
 
+pyitm-ng is not on PyPI yet (the first release, 0.3.0, is pending). Until then,
+install from GitHub:
+
 ```bash
-pip install pyitm-ng
+pip install "pyitm-ng @ git+https://github.com/tedaks/pyitm"
 ```
+
+Once released: `pip install pyitm-ng`.
 
 ```python
 import pyitm_ng
@@ -23,9 +28,11 @@ For development, from a clone: `pip install -e ".[dev]"`.
 ### Point-to-Point Mode
 
 ```python
-from pyitm_ng import predict_p2p, TerrainProfile, Climate, Polarization
+from pyitm_ng import predict_p2p, TerrainProfile, Climate, MDVar, Polarization
 
-pfl = [99, 100.0] + [0.0] * 100  # 100 intervals, 100m resolution, flat terrain
+# PFL format: [number of intervals, resolution in m, elevations...];
+# 99 intervals = 100 elevation points, 100 m apart (flat terrain here).
+pfl = [99, 100.0] + [0.0] * 100
 terrain = TerrainProfile.from_pfl(pfl)
 
 result = predict_p2p(
@@ -38,7 +45,7 @@ result = predict_p2p(
     pol=Polarization.VERTICAL,
     epsilon=15.0,
     sigma=0.008,
-    mdvar=12,
+    mdvar=MDVar.MOBILE + 10,  # 12: mobile mode; +10 removes location variability
     time=50.0,
     location=50.0,
     situation=50.0,
@@ -49,7 +56,7 @@ print(f"Propagation loss: {result.A__db:.2f} dB")
 ### Area Mode
 
 ```python
-from pyitm_ng import predict_area, Climate, Polarization, SitingCriteria
+from pyitm_ng import predict_area, Climate, MDVar, Polarization, SitingCriteria
 
 result = predict_area(
     h_tx__meter=10.0,
@@ -64,7 +71,7 @@ result = predict_area(
     pol=Polarization.VERTICAL,
     epsilon=15.0,
     sigma=0.008,
-    mdvar=0,
+    mdvar=MDVar.SINGLE_MESSAGE,
     time=50.0,
     location=50.0,
     situation=50.0,
@@ -101,7 +108,29 @@ ITM_DIFF_EXACT=1 ITM_REFERENCE_LIB=$(tools/build_itm_reference.sh) python3 -m py
 
 ## Numerical fidelity
 
-pyitm-ng reproduces the [NTIA/itm](https://github.com/NTIA/itm) C++ implementation exactly, verified in CI against the compiled C++ on thousands of random inputs. That includes the C++ model's sensitivity to tiny terrain changes: because terrain-fit bounds are truncated to whole profile points, a change of ~1e-9 m in a terrain profile, or in its resolution, can occasionally shift `A__db` by over 1 dB ([NTIA/itm#21](https://github.com/NTIA/itm/issues/21)). pyitm-ng deliberately keeps this behaviour so its results match the reference; if you compare results across tools, small input differences can explain large output differences on some paths.
+pyitm-ng reproduces the [NTIA/itm](https://github.com/NTIA/itm) C++ implementation (master `183ad95`) bit for bit: CI compiles the C++ and requires identical `A__db`, warnings and errors on random inputs for all four entry points.
+
+**Where this is verified:** Linux x86_64 and Linux aarch64 (glibc), CPython 3.10 and 3.14, in CI on every change. The reference is the C++ evaluated in plain IEEE arithmetic, with no fused multiply-adds: g++ `-O2 -ffp-contract=off -fcx-fortran-rules`. That is what a stock build produces on x86_64. A stock build on aarch64 does not: there the C++ routes complex division through libgcc's `__divdc3`, which uses FMA, so the C++ disagrees with itself across architectures in the last bit of about 0.02% of p2p paths. pyitm-ng gives the same bits on both architectures and matches the plain-IEEE C++.
+
+Bit-identity also depends on the platform's math library (`exp`, `log`, `pow`, `sin`, ...). macOS, Windows and other math libraries are not verified: any differences there would start in the last bits, but because of the sensitivity described next, a last-bit difference can occasionally become a whole-dB difference on some paths.
+
+That bit-for-bit match includes the C++ model's sensitivity to tiny terrain changes: because terrain-fit bounds are truncated to whole profile points, a change of ~1e-9 m in a terrain profile, or in its resolution, can occasionally shift `A__db` by over 1 dB ([NTIA/itm#21](https://github.com/NTIA/itm/issues/21)). pyitm-ng deliberately keeps this behaviour so its results match the reference; if you compare results across tools, small input differences can explain large output differences on some paths.
+
+**Tracking upstream:** the C++ reference is pinned (`tools/build_itm_reference.sh`). A weekly CI job checks NTIA/itm `master` and opens an issue when it moves. A change is then ported, the pin bumped, and the bit-exact differential must pass. pyitm-ng follows merged upstream changes only; unmerged proposals such as NTIA/itm#22 are not adopted.
+
+## Performance
+
+Pure Python, one path per call. Median time per call on one core (x86_64, CPython 3.11, numpy 2.x), against the C++ reference called through ctypes:
+
+| | pyitm-ng | C++ |
+|---|---|---|
+| p2p, 100-point profile | 0.23 ms | 0.007 ms |
+| p2p, 1,000 points | 0.37 ms | 0.017 ms |
+| p2p, 3,679 points | 0.46 ms | 0.048 ms |
+| p2p, 10,000 points | 0.68 ms | 0.12 ms |
+| area mode | 0.05 ms | — |
+
+Roughly 1,500–4,500 p2p paths per second per core; for large coverage runs, parallelize across paths (e.g. `multiprocessing`). There is no vectorized batch API: a faster path would have to give up bit-identity with the C++.
 
 ## References
 
@@ -109,4 +138,4 @@ pyitm-ng reproduces the [NTIA/itm](https://github.com/NTIA/itm) C++ implementati
 - G.A. Hufford, [The Irregular Terrain Model](https://www.its.bldrdoc.gov/media/50674/itm.pdf)
 - A.G. Longley and P.L. Rice, [Prediction of Tropospheric Radio Transmission Loss Over Irregular Terrain](https://www.its.bldrdoc.gov/publications/details.aspx?pub=2784), NTIA Technical Report ERL 79-ITS 67, July 1968.
 
-Derived from [NTIA/itm](https://github.com/NTIA/itm). Copyright NTIA.
+Derived from [NTIA/itm](https://github.com/NTIA/itm). The port is MIT-licensed; the model and NTIA's reference data remain under NTIA's public-domain notice (`MIT AND NTIA-PD`, see [LICENSE.md](LICENSE.md)).

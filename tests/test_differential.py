@@ -233,3 +233,19 @@ def test_area_cr_matches_cpp_reference(lib):
             py = e
         _compare((rc, A.value, warn.value), py, f"area_cr case {k}", mismatches)
     assert not mismatches, f"{len(mismatches)}/{N_CASES} mismatches:\n" + "\n".join(mismatches[:20])
+
+
+def test_long_profiles_match_cpp_reference(lib):
+    """1,000-10,000 point profiles: the random cases stop at 600 points, but
+    compute_delta_h's resampling skips many points per step only on long paths."""
+    mismatches = []
+    rng = random.Random(20261008)
+    n_cases = max(50, N_CASES // 25)
+    for k in range(n_cases):
+        n = rng.randint(1000, 10000)
+        elevs = np.cumsum(np.random.default_rng(10_000_000 + k).normal(0.0, rng.choice([0.5, 3.0, 15.0]), n + 1))
+        pfl = [float(n), rng.uniform(10.0, 200.0)] + (elevs + rng.uniform(0.0, 500.0)).tolist()
+        a = [rng.uniform(0.5, 300.0), rng.uniform(0.5, 300.0)] + _common(rng)
+        cpp, py = _run_p2p(lib, pfl, a)
+        _compare(cpp, py, f"long p2p case {k} (n={n})", mismatches)
+    assert not mismatches, f"{len(mismatches)}/{n_cases} mismatches:\n" + "\n".join(mismatches[:20])

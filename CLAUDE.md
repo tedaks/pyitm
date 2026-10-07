@@ -19,7 +19,7 @@ python3 -m pytest
 ruff check pyitm_ng/
 ```
 
-All 90 tests must pass before any commit (the 5 in `tests/test_differential.py` skip unless `ITM_REFERENCE_LIB` is set).
+All 93 tests must pass before any commit, and `mypy` (strict, configured in `pyproject.toml`) must be clean (the 6 in `tests/test_differential.py` skip unless `ITM_REFERENCE_LIB` is set).
 
 ```bash
 # Differential test against the NTIA/itm C++ reference (Linux, needs g++); exact = bit-identical
@@ -39,7 +39,7 @@ ITM_DIFF_EXACT=1 ITM_REFERENCE_LIB=$(tools/build_itm_reference.sh) python3 -m py
 
 ## Accuracy requirement
 
-All predictions must match the reference CSVs (`p2p.csv` / `pfls.csv` / `area.csv`) to within **0.01 dB**, and must round to the published values in NTIA's own CSVs (`tests/data/ntia/`, checked by `tests/test_ntia_reference.py`). The integration tests in `tests/test_p2p.py` and `tests/test_area.py` enforce this tolerance — do not loosen it. `tests/test_differential.py` checks the C++ reference on random inputs, and with `ITM_DIFF_EXACT=1` (as in CI) requires bit-identical results; a vectorization that reorders floating-point operations can pass the CSVs and still fail there.
+All predictions must match the synthetic reference CSVs (`tests/data/synthetic/`: `p2p.csv` / `pfls.csv` / `area.csv`) to within **0.01 dB**, and must round to the published values in NTIA's own CSVs (`tests/data/ntia/`, checked by `tests/test_ntia_reference.py`). The integration tests in `tests/test_p2p.py` and `tests/test_area.py` enforce this tolerance — do not loosen it. `tests/test_differential.py` checks the C++ reference on random inputs, and with `ITM_DIFF_EXACT=1` (as in CI) requires bit-identical results; a vectorization that reorders floating-point operations can pass the CSVs and still fail there.
 
 ### Fidelity policy: match the C++ exactly
 
@@ -50,13 +50,14 @@ The port reproduces the NTIA/itm C++ reference (master `183ad95`) operation for 
 - Square with `sq(x)` (from `_constants`) wherever the C++ has `pow(x, 2)`. GCC compiles that to `x*x`; Python `x**2` calls libm `pow()`, which differs from `x*x` in the last bit for ~0.1% of inputs. Other exponents stay `**` / `pow()`: the compiled C++ calls `pow()` for those too.
 - Keep scalar code on Python floats: read array elements with `float(...)`. A numpy scalar silently turns complex arithmetic into `np.complex128`, whose division is not the C++ / CPython algorithm (`test_p2p_returns_python_floats` guards this).
 - Where the C++ yields an IEEE ±inf / nan instead of failing (division by zero, `log(0)`), produce the same value (`_ieee_div`, `_c_max`, `iccdf`) instead of letting Python raise.
-- `tests/test_differential.py` is the arbiter. Run it with `ITM_DIFF_EXACT=1`: `A__db` must be bit-identical, not just within 0.01 dB (a reordered reduction stays well inside 0.01 dB, so only exact mode catches it). CI runs it that way. The reference is built with `-O2` and no `-march`, so the compiler never contracts into FMA; keep it that way.
+- `tests/test_differential.py` is the arbiter. Run it with `ITM_DIFF_EXACT=1`: `A__db` must be bit-identical, not just within 0.01 dB (a reordered reduction stays well inside 0.01 dB, so only exact mode catches it). CI runs it that way. The reference is built with `-ffp-contract=off -fcx-fortran-rules` (no fused multiply-adds, complex division inline rather than libgcc's FMA-using `__divdc3`), so the C++ is plain IEEE on every architecture; keep it that way.
 
 Deliberate deviations from the C++ (the only ones). Both are input checks at an entry point where the C++ has undefined behaviour; neither changes arithmetic on valid input:
 
 - `predict_p2p` / `predict_p2p_cr` raise `ValueError` for a terrain profile with fewer than 2 points (the C++ reads past the array).
 - `TerrainProfile.from_pfl` clamps a PFL whose header declares more points than it contains, and logs a warning (the C++ reads out of bounds).
-- If upstream changes its arithmetic, update the pinned commit in `tools/build_itm_reference.sh` and follow it.
+- Track merged upstream changes, never unmerged proposals. `.github/workflows/upstream.yml` checks NTIA/itm `master` weekly and opens an issue when it no longer equals the pin. To follow it: diff the upstream change, port it, update `ITM_COMMIT` in `tools/build_itm_reference.sh` (and the pin quoted in README, CLAUDE.md, AGENTS.md, LICENSE.md; `tests/test_docs_sync.py` checks they agree), then the bit-exact differential must pass.
+- This section is duplicated verbatim in CLAUDE.md and AGENTS.md (`tests/test_docs_sync.py` fails if they drift); edit both.
 
 ## Coding conventions
 
@@ -74,4 +75,11 @@ Deliberate deviations from the C++ (the only ones). Both are input checks at an 
 
 ## CI
 
-GitHub Actions (`.github/workflows/ci.yml`) runs `pytest -v` and `ruff check pyitm_ng/ tests/` on every push/PR to `main`, plus a `differential` job that builds the C++ reference and runs `tests/test_differential.py` on 5000 random cases per mode with `ITM_DIFF_EXACT=1` (bit-identical).
+GitHub Actions (`.github/workflows/ci.yml`) on every push/PR to `main`:
+
+- `test`: `pytest -v` on Python 3.10–3.14.
+- `lint`: `ruff check` (rules in `pyproject.toml`) and `mypy` (strict).
+- `min-deps`: each Python against its numpy floor from `pyproject.toml`.
+- `differential`: builds the C++ reference and runs `tests/test_differential.py` (5000 random cases per entry point, `ITM_DIFF_EXACT=1`, bit-identical) on Linux x86_64 and aarch64, Python 3.10 and 3.14.
+
+`.github/workflows/upstream.yml` runs weekly and opens an issue when NTIA/itm `master` moves past the pin.

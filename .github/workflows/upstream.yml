@@ -1,0 +1,43 @@
+name: Upstream drift
+
+# Weekly: does NTIA/itm master still equal the commit pyitm-ng is pinned to?
+# If not, open (once) an issue so the change gets ported (CLAUDE.md, Fidelity policy).
+
+on:
+  schedule:
+    - cron: "17 3 * * 1"  # Mondays 03:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compare NTIA/itm master with the pin
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          pinned=$(sed -n 's/^ITM_COMMIT=\([0-9a-f]\{40\}\).*/\1/p' tools/build_itm_reference.sh)
+          upstream=$(git ls-remote https://github.com/NTIA/itm.git refs/heads/master | cut -f1)
+          test -n "$pinned" && test -n "$upstream"
+          echo "pinned=$pinned upstream=$upstream"
+          if [ "$pinned" = "$upstream" ]; then
+            echo "NTIA/itm master is still at the pinned commit."
+            exit 0
+          fi
+          title="NTIA/itm master moved: ${upstream:0:7} (pinned ${pinned:0:7})"
+          if gh issue list --state open --search "in:title \"NTIA/itm master moved\"" --json title -q '.[].title' | grep -q .; then
+            echo "An upstream-drift issue is already open."
+          else
+            gh issue create --title "$title" --body "NTIA/itm \`master\` is at https://github.com/NTIA/itm/commit/$upstream; pyitm-ng is pinned to https://github.com/NTIA/itm/commit/$pinned.
+
+          Compare: https://github.com/NTIA/itm/compare/$pinned...$upstream
+
+          Follow CLAUDE.md, Fidelity policy: port the change, bump \`ITM_COMMIT\` (and the quoted pins), and the bit-exact differential must pass."
+          fi
+          exit 1
