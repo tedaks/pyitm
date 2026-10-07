@@ -8,6 +8,14 @@ THIRD = 1.0 / 3.0
 a_0__meter = 6370e3  # actual earth radius
 a_9000__meter = 9000e3  # reference radius for variability effective distance
 
+
+
+def sq(x: float) -> float:
+    """C++ pow(x, 2). GCC folds it to x*x; Python's x**2 calls libm pow(), which is
+    not correctly rounded and differs from x*x in the last bit for ~0.1% of inputs."""
+    return x * x
+
+
 # Wavenumber denominator: wn = f_mhz / WN_DENOM  [Algorithm]
 WN_DENOM = 47.7
 

@@ -69,4 +69,5 @@ jobs:
       - name: Run differential tests
         env:
           ITM_DIFF_CASES: "5000"
+          ITM_DIFF_EXACT: "1"
         run: pytest -v tests/test_differential.py

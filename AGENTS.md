@@ -17,7 +17,7 @@ Requires Python ≥ 3.10 and numpy.
 ## Verification
 
 ```bash
-python3 -m pytest          # all 82 tests must pass (2 differential tests skip without ITM_REFERENCE_LIB)
+python3 -m pytest          # all 90 tests must pass (5 differential tests skip without ITM_REFERENCE_LIB)
 ruff check pyitm_ng/            # zero lint errors
 ```
 
@@ -26,7 +26,7 @@ Run both commands after every change. Never submit work that breaks either.
 Changes to numeric code in `pyitm_ng/` should also pass the differential test against the NTIA/itm C++ reference (Linux, needs g++):
 
 ```bash
-ITM_REFERENCE_LIB=$(tools/build_itm_reference.sh) python3 -m pytest tests/test_differential.py
+ITM_DIFF_EXACT=1 ITM_REFERENCE_LIB=$(tools/build_itm_reference.sh) python3 -m pytest tests/test_differential.py
 ```
 
 ## Repository layout
@@ -60,7 +60,16 @@ All outputs must match the reference CSVs within **0.01 dB**. This tolerance is 
 The port reproduces the NTIA/itm C++ reference (master `183ad95`) operation for operation, **including its numeric quirks**. In particular, `linear_least_squares_fit` truncates distances to terrain indices with `int()`, so a last-bit difference in a distance can select a neighbouring index and move `A__db` by more than 1 dB (NTIA/itm#21). This is intentional; do not "fix" it:
 
 - Do not adopt rounding fixes such as the unmerged NTIA/itm#22, or any other deviation from the C++ arithmetic, even where it is arguably more robust.
-- Vectorize only if the result is bit-identical to the C++ order of operations (e.g. `np.cumsum` for `d += xi`, not `i * xi`). `tests/test_differential.py` is the arbiter.
+- Vectorize only if the result is bit-identical to the C++ order of operations (e.g. `np.cumsum` for `d += xi`, not `i * xi`). Sequential `+=` reductions stay sequential loops (no `np.sum` / `np.dot` / `.mean()`).
+- Square with `sq(x)` (from `_constants`) wherever the C++ has `pow(x, 2)`. GCC compiles that to `x*x`; Python `x**2` calls libm `pow()`, which differs from `x*x` in the last bit for ~0.1% of inputs. Other exponents stay `**` / `pow()`: the compiled C++ calls `pow()` for those too.
+- Keep scalar code on Python floats: read array elements with `float(...)`. A numpy scalar silently turns complex arithmetic into `np.complex128`, whose division is not the C++ / CPython algorithm (`test_p2p_returns_python_floats` guards this).
+- Where the C++ yields an IEEE ±inf / nan instead of failing (division by zero, `log(0)`), produce the same value (`_ieee_div`, `_c_max`, `iccdf`) instead of letting Python raise.
+- `tests/test_differential.py` is the arbiter. Run it with `ITM_DIFF_EXACT=1`: `A__db` must be bit-identical, not just within 0.01 dB (a reordered reduction stays well inside 0.01 dB, so only exact mode catches it). CI runs it that way. The reference is built with `-O2` and no `-march`, so the compiler never contracts into FMA; keep it that way.
+
+Deliberate deviations from the C++ (the only ones). Both are input checks at an entry point where the C++ has undefined behaviour; neither changes arithmetic on valid input:
+
+- `predict_p2p` / `predict_p2p_cr` raise `ValueError` for a terrain profile with fewer than 2 points (the C++ reads past the array).
+- `TerrainProfile.from_pfl` clamps a PFL whose header declares more points than it contains, and logs a warning (the C++ reads out of bounds).
 - If upstream changes its arithmetic, update the pinned commit in `tools/build_itm_reference.sh` and follow it.
 
 ## Conventions
@@ -75,4 +84,4 @@ The port reproduces the NTIA/itm C++ reference (master `183ad95`) operation for 
 1. Set `__version__` in `pyitm_ng/__init__.py` (the only place the version lives).
 2. In `CHANGELOG.md`, rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD` and add a fresh empty `## [Unreleased]` above it.
 3. Merge to `main`, then tag and push: `git tag vX.Y.Z && git push origin vX.Y.Z`.
-4. `.github/workflows/release.yml` builds, verifies the tag matches the version, tests the built wheel, and publishes to PyPI (trusted publishing, `pypi` environment).
+4. `.github/workflows/release.yml` builds, verifies the tag matches the version, refuses to publish unless `CHANGELOG.md` has a `## [X.Y.Z] - YYYY-MM-DD` section for that version (so a tag pushed while the changelog still says `[Unreleased]`, i.e. publishing on hold, stops there), runs the bit-exact differential against the C++ reference, tests the built wheel, and publishes to PyPI (trusted publishing, `pypi` environment).

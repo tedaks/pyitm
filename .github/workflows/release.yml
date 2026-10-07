@@ -10,6 +10,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check CHANGELOG has a release section for this tag
+        # Publishing is on hold while CHANGELOG.md still says [Unreleased]: a release
+        # needs '## [X.Y.Z] - YYYY-MM-DD' (CLAUDE.md, Releasing, step 2).
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          if ! grep -Eq "^## \[${version//./\\.}\] - [0-9]{4}-[0-9]{2}-[0-9]{2}\$" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no '## [${version}] - YYYY-MM-DD' section; not publishing ${GITHUB_REF_NAME}"
+            exit 1
+          fi
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -32,6 +42,15 @@ jobs:
           # outside the checkout, so the installed wheel is what gets imported
           mkdir /tmp/wheel-check && cp -r tests p2p.csv pfls.csv area.csv /tmp/wheel-check/
           cd /tmp/wheel-check && /tmp/wheel-env/bin/python -m pytest -q tests
+
+      - name: Bit-exact differential against the C++ reference
+        env:
+          ITM_DIFF_CASES: "5000"
+          ITM_DIFF_EXACT: "1"
+        run: |
+          python -m pip install -e ".[dev]"
+          export ITM_REFERENCE_LIB="$(tools/build_itm_reference.sh)"
+          python -m pytest -q tests/test_differential.py
 
       - uses: actions/upload-artifact@v4
         with:

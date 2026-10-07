@@ -84,3 +84,20 @@ def test_p2p_horizon_distance_rounding_regression():
         situation=50.0,
     )
     assert result.A__db == pytest.approx(128.2976016591739, abs=0.01)
+
+
+@pytest.mark.parametrize("idx", range(len(P2P_CASES)))
+def test_p2p_returns_python_floats(idx):
+    """numpy scalars must not leak into the scalar code path: np.complex128 division
+    is not the C++/CPython algorithm and changes the last bit (LineOfSightLoss)."""
+    c = P2P_CASES[idx]
+    result = predict_p2p(
+        h_tx__meter=c["h_tx__meter"], h_rx__meter=c["h_rx__meter"], terrain=PFL_PROFILES[idx],
+        climate=Climate(int(c["climate"])), N_0=c["N_0"], f__mhz=c["f__mhz"],
+        pol=Polarization(int(c["pol"])), epsilon=c["epsilon"], sigma=c["sigma"],
+        mdvar=int(c["mdvar"]), time=c["time"], location=c["location"],
+        situation=c["situation"], return_intermediate=True,
+    )
+    iv = result.intermediate
+    for v in (result.A__db, iv.A_ref__db, iv.delta_h__meter, *iv.h_e__meter, *iv.theta_hzn, *iv.d_hzn__meter):
+        assert type(v) is float, type(v)

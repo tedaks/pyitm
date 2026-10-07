@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 import cmath
 from pyitm_ng._constants import (
+    sq,
     PI,
     SQRT2,
     THIRD,
@@ -28,6 +29,20 @@ from pyitm_ng._constants import (
 )
 from pyitm_ng.models import PropMode
 from pyitm_ng.variability import terrain_roughness, sigma_h_function
+
+
+def _ieee_div(a: float, b: float) -> float:
+    """a / b with C++ IEEE-754 semantics: x/0 -> +-inf, 0/0 -> nan (no exception)."""
+    if b != 0.0:
+        return a / b
+    if a != a or a == 0.0:
+        return math.nan
+    return math.copysign(math.inf, a) * math.copysign(1.0, b)
+
+
+def _c_max(x: float, y: float) -> float:
+    """The C++ MAX macro, ((x) > (y)) ? (x) : (y): a nan in y propagates, unlike max()."""
+    return x if x > y else y
 
 
 def free_space_loss(d__meter: float, f__mhz: float) -> float:
@@ -58,7 +73,7 @@ def knife_edge_diffraction(
     v_1 = (
         0.0795775
         * (f__mhz / WN_DENOM)
-        * theta_nlos**2
+        * sq(theta_nlos)
         * d_hzn__meter[0]
         * d_nlos__meter
         / (d_nlos__meter + d_hzn__meter[0])
@@ -66,7 +81,7 @@ def knife_edge_diffraction(
     v_2 = (
         0.0795775
         * (f__mhz / WN_DENOM)
-        * theta_nlos**2
+        * sq(theta_nlos)
         * d_hzn__meter[1]
         * d_nlos__meter
         / (d_nlos__meter + d_hzn__meter[1])
@@ -84,7 +99,7 @@ def height_function(x__km: float, K: float) -> float:
             if x__km > 1.0:
                 result = 17.372 * math.log(x__km) + result
         else:
-            result = 2.5e-5 * x__km**2 / K - 8.686 * w - 15.0
+            result = 2.5e-5 * sq(x__km) / K - 8.686 * w - 15.0
     else:
         result = 0.05751 * x__km - 4.343 * math.log(x__km)
         if x__km < 2000.0:
@@ -113,8 +128,8 @@ def smooth_earth_diffraction(
     # 3 radii [Vogler 1964, Eqn 3 re-arranged]
     a__meter = [
         (d__meter - d_ML__meter) / (d__meter / a_e__meter - theta_los),
-        0.5 * d_hzn__meter[0] ** 2 / h_e__meter[0],
-        0.5 * d_hzn__meter[1] ** 2 / h_e__meter[1],
+        0.5 * sq(d_hzn__meter[0]) / h_e__meter[0],
+        0.5 * sq(d_hzn__meter[1]) / h_e__meter[1],
     ]
     d__km_vogler = [
         a__meter[0] * theta_nlos / 1000.0,
@@ -128,10 +143,10 @@ def smooth_earth_diffraction(
     B_0 = [1.607 - K[i] for i in range(3)]
 
     x__km = [0.0, 0.0, 0.0]
-    x__km[1] = B_0[1] * C_0[1] ** 2 * f__mhz**THIRD * d__km_vogler[1]
-    x__km[2] = B_0[2] * C_0[2] ** 2 * f__mhz**THIRD * d__km_vogler[2]
+    x__km[1] = B_0[1] * sq(C_0[1]) * f__mhz**THIRD * d__km_vogler[1]
+    x__km[2] = B_0[2] * sq(C_0[2]) * f__mhz**THIRD * d__km_vogler[2]
     x__km[0] = (
-        B_0[0] * C_0[0] ** 2 * f__mhz**THIRD * d__km_vogler[0] + x__km[1] + x__km[2]
+        B_0[0] * sq(C_0[0]) * f__mhz**THIRD * d__km_vogler[0] + x__km[1] + x__km[2]
     )
 
     F_x = [height_function(x__km[1], K[1]), height_function(x__km[2], K[2])]
@@ -145,7 +160,7 @@ def h0_curve(j: int, r: float) -> float:
     """Curve fit helper for H_0(). [Algorithm, 6.13]"""
     a = [25.0, 80.0, 177.0, 395.0, 705.0]
     b = [24.0, 45.0, 68.0, 80.0, 105.0]
-    return 10.0 * math.log10(1.0 + a[j] * (1.0 / r) ** 4 + b[j] * (1.0 / r) ** 2)
+    return 10.0 * math.log10(1.0 + a[j] * (1.0 / r) ** 4 + b[j] * sq(1.0 / r))
 
 
 def h0_function(r: float, eta_s: float) -> float:
@@ -219,7 +234,7 @@ def troposcatter_loss(
 
         eta_s = (h_0__meter / Z_0__meter) * (
             1.0
-            + (0.031 - N_s * 2.32e-3 + N_s**2 * 5.67e-6)
+            + (0.031 - N_s * 2.32e-3 + sq(N_s) * 5.67e-6)
             * math.exp(-pow(min(1.7, h_0__meter / Z_1__meter), 6))
         )
 
@@ -233,7 +248,7 @@ def troposcatter_loss(
 
         if eta_s < 1.0:
             H_0 = eta_s * H_0 + (1.0 - eta_s) * 10.0 * math.log10(
-                ((1.0 + SQRT2 / r_1) * (1.0 + SQRT2 / r_2)) ** 2
+                sq((1.0 + SQRT2 / r_1) * (1.0 + SQRT2 / r_2))
                 * (r_1 + r_2)
                 / (r_1 + r_2 + 2.0 * SQRT2)
             )
@@ -270,7 +285,7 @@ def line_of_sight_loss(
     wn = f__mhz / WN_DENOM
 
     sin_psi = (h_e__meter[0] + h_e__meter[1]) / math.sqrt(
-        d__meter**2 + (h_e__meter[0] + h_e__meter[1]) ** 2
+        sq(d__meter) + sq(h_e__meter[0] + h_e__meter[1])
     )
 
     R_e = (
@@ -279,16 +294,16 @@ def line_of_sight_loss(
         * math.exp(-min(10.0, wn * sigma_h_d__meter * sin_psi))
     )
 
-    q = R_e.real**2 + R_e.imag**2
+    q = sq(R_e.real) + sq(R_e.imag)
     if q < 0.25 or q < sin_psi:
         R_e = R_e * math.sqrt(sin_psi / q)
 
     delta_phi = wn * 2.0 * h_e__meter[0] * h_e__meter[1] / d__meter
     if delta_phi > PI / 2.0:
-        delta_phi = PI - (PI / 2.0) ** 2 / delta_phi
+        delta_phi = PI - sq(PI / 2.0) / delta_phi
 
     rr = complex(math.cos(delta_phi), -math.sin(delta_phi)) + R_e
-    A_t__db = -10.0 * math.log10(rr.real**2 + rr.imag**2)
+    A_t__db = -10.0 * math.log10(sq(rr.real) + sq(rr.imag))
 
     A_d__db = M_d * d__meter + A_d0
     w = 1.0 / (1.0 + f__mhz * delta_h__meter / max(10e3, d_sML__meter))
@@ -441,9 +456,10 @@ def longley_rice(
         )
 
     # Two reference distances in the diffraction region
-    d_diff_step = 10.0 * pow(a_e__meter**2 / f__mhz, 1.0 / 3.0)
-    d_3__meter = max(d_sML__meter, d_ML__meter + 0.5 * d_diff_step)
-    d_4__meter = d_3__meter + d_diff_step
+    # LongleyRice.cpp: 5.0*X and 10.0*X computed separately; 0.5*(10.0*X) rounds
+    # differently in the last bit and shifts M_d / A_d0.
+    d_3__meter = max(d_sML__meter, d_ML__meter + 5.0 * pow(sq(a_e__meter) / f__mhz, 1.0 / 3.0))
+    d_4__meter = d_3__meter + 10.0 * pow(sq(a_e__meter) / f__mhz, 1.0 / 3.0)
 
     A_3__db = diffraction_loss(
         d_3__meter,
@@ -587,13 +603,15 @@ def longley_rice(
 
         if A_5__db < 1000.0:
             M_s = (A_6__db - A_5__db) / 200e3
-            d_x__meter = max(
-                max(
+            # LongleyRice.cpp:195. M_d == M_s divides by zero: C++ yields +-inf/nan
+            # and MAX() passes it on, so match that instead of raising.
+            d_x__meter = _c_max(
+                _c_max(
                     d_sML__meter,
                     d_ML__meter
-                    + 1.088 * pow(a_e__meter**2 / f__mhz, 1.0 / 3.0) * math.log(f__mhz),
+                    + 1.088 * pow(sq(a_e__meter) / f__mhz, 1.0 / 3.0) * math.log(f__mhz),
                 ),
-                (A_5__db - A_d0__db - M_s * d_5__meter) / (M_d - M_s),
+                _ieee_div(A_5__db - A_d0__db - M_s * d_5__meter, M_d - M_s),
             )
             A_s0__db = (M_d - M_s) * d_x__meter + A_d0__db
         else:

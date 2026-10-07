@@ -22,6 +22,8 @@ git -C "$src_dir" checkout -q FETCH_HEAD
 
 sed -i 's#\.\.\\include\\#../include/#' "$src_dir"/src/*.cpp
 
+# -O2 without -march: no FMA contraction, so tests/test_differential.py can demand
+# bit-identical results (ITM_DIFF_EXACT=1). Adding -march=native / -ffast-math breaks that.
 g++ -std=c++17 -O2 -fPIC -shared '-D__declspec(x)=' \
     -I"$src_dir/include" "$src_dir"/src/*.cpp -o "$out_dir/libitm.so"
 
