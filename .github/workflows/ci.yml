@@ -30,7 +30,9 @@ jobs:
           pip install -e ".[dev]"
 
       - name: Run tests
-        run: pytest -v
+        # Any open()/read_text() without an explicit encoding fails on every OS, not
+        # just on Windows (whose default is cp1252).
+        run: python -X warn_default_encoding -W error::EncodingWarning -m pytest -v
 
   lint:
     runs-on: ubuntu-latest

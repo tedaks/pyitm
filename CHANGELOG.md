@@ -46,7 +46,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `tests/test_ntia_reference.py`: p2p and area cases from the CSVs shipped with NTIA/itm (`tests/data/ntia/`, real terrain profiles); results must round to the published values
 - `test_p2p_returns_python_floats`: guards against numpy scalars in the scalar code path
 - `tests/test_validation.py`: 79 cases for the input checks above
-- CI `test` job on macOS and Windows as well as Linux (Python 3.10–3.14), backing the "OS Independent" classifier
+- CI `test` job on macOS and Windows as well as Linux (Python 3.10–3.14), backing the "OS Independent" classifier. It found that the tests read files with the platform default encoding (cp1252 on Windows); every read now says `utf-8`, and CI runs with `-X warn_default_encoding -W error::EncodingWarning` so an unspecified encoding fails on Linux too.
 - Differential on Linux aarch64 as well as x86_64, Python 3.10 and 3.14; exact test on 1,000-10,000 point profiles
 - CI `min-deps` job: every supported Python against its numpy floor
 - `.github/workflows/upstream.yml`: weekly check of NTIA/itm `master` against the pin; opens an issue when it moves
