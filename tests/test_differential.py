@@ -218,6 +218,30 @@ def test_underflowing_percentiles_match_cpp(lib):
     assert not mismatches, "\n".join(mismatches)
 
 
+# Ground-impedance extremes: the smallest sigma > 0 (ep_r imaginary part underflows to 0),
+# epsilon at its floor, both polarizations (pol=1 divides Z_g by ep_r), the frequency
+# range ends, and a short line-of-sight path so LineOfSightLoss's (sin_psi + Z_g)
+# denominator is exercised. The C++ returns a result or an error code here; Python must
+# do the same and never raise ZeroDivisionError.
+GROUND_EXTREMES = [
+    (pol, eps, sigma, f)
+    for pol in (0, 1)
+    for eps in (1.0, 1.0 + 2.0**-52, 100.0)
+    for sigma in (5e-324, 1e-300, 1e-5, 10.0)
+    for f in (20.0, 20000.0)
+]
+
+
+def test_ground_impedance_extremes_match_cpp(lib):
+    mismatches = []
+    for pfl in ([10.0, 10.0] + [100.0] * 11, [100.0, 500.0] + [float(i % 7) for i in range(101)]):
+        for pol, eps, sigma, f in GROUND_EXTREMES:
+            a = [30.0, 30.0, 5, 301.0, f, pol, eps, sigma, 12, 50.0, 50.0, 50.0]
+            cpp, py = _run_p2p(lib, pfl, a)
+            _compare(cpp, py, f"p2p pol={pol} eps={eps!r} sigma={sigma!r} f={f} np={pfl[0]}", mismatches)
+    assert not mismatches, "\n".join(mismatches)
+
+
 def test_p2p_cr_matches_cpp_reference(lib):
     """Confidence/reliability entry point; the random location percentile is used as
     reliability and the situation percentile as confidence."""

@@ -133,15 +133,15 @@ That bit-for-bit match includes the C++ model's sensitivity to tiny terrain chan
 
 ## Performance
 
-Pure Python, one path per call. Median time per call on one core (x86_64, CPython 3.11, numpy 2.x), against the C++ reference called through ctypes:
+Pure Python, one path per call. Median of 1,000 timed calls (after warm-up) on one core (x86_64, CPython 3.11, numpy 2.x), against the C++ reference called through ctypes:
 
 | | pyitm-ng | C++ |
 |---|---|---|
 | p2p, 100-point profile | 0.23 ms | 0.007 ms |
-| p2p, 1,000 points | 0.37 ms | 0.017 ms |
-| p2p, 3,679 points | 0.46 ms | 0.048 ms |
-| p2p, 10,000 points | 0.68 ms | 0.12 ms |
-| area mode | 0.05 ms | — |
+| p2p, 1,000 points | 0.36 ms | 0.017 ms |
+| p2p, 3,679 points | 0.43 ms | 0.048 ms |
+| p2p, 10,000 points | 0.60 ms | 0.12 ms |
+| area mode | 0.07 ms | — |
 
 Roughly 1,500–4,500 p2p paths per second per core; for large coverage runs, parallelize across paths (e.g. `multiprocessing`). There is no vectorized batch API: a faster path would have to give up bit-identity with the C++.
 
