@@ -27,7 +27,9 @@ from pyitm_ng import (
     SitingCriteria,
     TerrainProfile,
     predict_area,
+    predict_area_cr,
     predict_p2p,
+    predict_p2p_cr,
 )
 
 LIB_PATH = os.environ.get("ITM_REFERENCE_LIB")
@@ -49,6 +51,8 @@ def lib():
     lib = ctypes.CDLL(LIB_PATH)
     lib.ITM_P2P_TLS.argtypes = [D, D, PD, N, D, D, N, D, D, N, D, D, D, PD, PL]
     lib.ITM_AREA_TLS.argtypes = [D, D, N, N, D, D, N, D, D, N, D, D, N, D, D, D, PD, PL]
+    lib.ITM_P2P_CR.argtypes = [D, D, PD, N, D, D, N, D, D, N, D, D, PD, PL]
+    lib.ITM_AREA_CR.argtypes = [D, D, N, N, D, D, N, D, D, N, D, D, N, D, D, PD, PL]
     return lib
 
 
@@ -185,3 +189,47 @@ def test_underflowing_percentiles_match_cpp(lib):
             _compare(cpp, py, f"p2p mdvar={mdvar} t={t} l={loc} s={sit}", mismatches)
     assert not mismatches, "\n".join(mismatches)
 
+
+def test_p2p_cr_matches_cpp_reference(lib):
+    """Confidence/reliability entry point; the random location percentile is used as
+    reliability and the situation percentile as confidence."""
+    mismatches = []
+    for k, pfl, a in _p2p_cases():
+        h_tx, h_rx, climate, N_0, f, pol, eps, sigma, mdvar, _t, rel, conf = a
+        A, warn = ctypes.c_double(), ctypes.c_long()
+        rc = lib.ITM_P2P_CR(
+            h_tx, h_rx, (ctypes.c_double * len(pfl))(*pfl), climate, N_0, f, pol, eps,
+            sigma, mdvar, conf, rel, ctypes.byref(A), ctypes.byref(warn),
+        )
+        try:
+            py = predict_p2p_cr(
+                h_tx__meter=h_tx, h_rx__meter=h_rx, terrain=TerrainProfile.from_pfl(pfl),
+                climate=Climate(climate), N_0=N_0, f__mhz=f, pol=Polarization(pol),
+                epsilon=eps, sigma=sigma, mdvar=mdvar, confidence=conf, reliability=rel,
+            )
+        except ValueError as e:
+            py = e
+        _compare((rc, A.value, warn.value), py, f"p2p_cr case {k}", mismatches)
+    assert not mismatches, f"{len(mismatches)}/{N_CASES} mismatches:\n" + "\n".join(mismatches[:20])
+
+
+def test_area_cr_matches_cpp_reference(lib):
+    mismatches = []
+    for k, a in _area_cases():
+        h_tx, h_rx, tx_site, rx_site, d, dh, climate, N_0, f, pol, eps, sigma, mdvar, _t, rel, conf = a
+        A, warn = ctypes.c_double(), ctypes.c_long()
+        rc = lib.ITM_AREA_CR(
+            h_tx, h_rx, tx_site, rx_site, d, dh, climate, N_0, f, pol, eps, sigma, mdvar,
+            conf, rel, ctypes.byref(A), ctypes.byref(warn),
+        )
+        try:
+            py = predict_area_cr(
+                h_tx__meter=h_tx, h_rx__meter=h_rx, tx_siting=SitingCriteria(tx_site),
+                rx_siting=SitingCriteria(rx_site), d__km=d, delta_h__meter=dh,
+                climate=Climate(climate), N_0=N_0, f__mhz=f, pol=Polarization(pol),
+                epsilon=eps, sigma=sigma, mdvar=mdvar, confidence=conf, reliability=rel,
+            )
+        except ValueError as e:
+            py = e
+        _compare((rc, A.value, warn.value), py, f"area_cr case {k}", mismatches)
+    assert not mismatches, f"{len(mismatches)}/{N_CASES} mismatches:\n" + "\n".join(mismatches[:20])

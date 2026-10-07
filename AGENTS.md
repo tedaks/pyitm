@@ -17,7 +17,7 @@ Requires Python ≥ 3.10 and numpy.
 ## Verification
 
 ```bash
-python3 -m pytest          # all 88 tests must pass (3 differential tests skip without ITM_REFERENCE_LIB)
+python3 -m pytest          # all 90 tests must pass (5 differential tests skip without ITM_REFERENCE_LIB)
 ruff check pyitm_ng/            # zero lint errors
 ```
 

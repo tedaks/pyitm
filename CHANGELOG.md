@@ -25,7 +25,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - `.github/workflows/release.yml`: on a `v*` tag, builds sdist + wheel, checks the tag matches the version, runs the test suite against the installed wheel, and publishes to PyPI via trusted publishing
 - Documented fidelity policy (README, `CLAUDE.md`, `AGENTS.md`): pyitm matches the NTIA/itm C++ exactly, including the `int()` truncation sensitivity in `linear_least_squares_fit` (NTIA/itm#21); upstream rounding fixes such as NTIA/itm#22 are deliberately not adopted. The two deliberate deviations (input checks where the C++ has undefined behaviour) are listed there.
-- `tests/test_differential.py`: compares `predict_p2p` / `predict_area` against the NTIA/itm C++ reference on random inputs (A__db within 0.01 dB, identical warnings, matching errors); skips unless `ITM_REFERENCE_LIB` is set. `ITM_DIFF_EXACT=1` requires bit-identical `A__db`; CI runs it that way. Also covers underflowing percentile inputs across every mdvar.
+- `tests/test_differential.py`: compares `predict_p2p` / `predict_area` against the NTIA/itm C++ reference on random inputs (A__db within 0.01 dB, identical warnings, matching errors); skips unless `ITM_REFERENCE_LIB` is set. `ITM_DIFF_EXACT=1` requires bit-identical `A__db`; CI runs it that way. Covers all four entry points (TLS and CR, p2p and area) and underflowing percentile inputs across every mdvar.
 - `tools/build_itm_reference.sh`: builds the C++ reference at a pinned commit as `libitm.so`
 - CI `differential` job running the above on 5000 cases per mode
 - `tests/test_ntia_reference.py`: p2p and area cases from the CSVs shipped with NTIA/itm (`tests/data/ntia/`, real terrain profiles); results must round to the published values

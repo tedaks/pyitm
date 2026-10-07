@@ -19,11 +19,11 @@ python3 -m pytest
 ruff check pyitm_ng/
 ```
 
-All 82 tests must pass before any commit (the 2 in `tests/test_differential.py` skip unless `ITM_REFERENCE_LIB` is set).
+All 90 tests must pass before any commit (the 5 in `tests/test_differential.py` skip unless `ITM_REFERENCE_LIB` is set).
 
 ```bash
-# Differential test against the NTIA/itm C++ reference (Linux, needs g++)
-ITM_REFERENCE_LIB=$(tools/build_itm_reference.sh) python3 -m pytest tests/test_differential.py
+# Differential test against the NTIA/itm C++ reference (Linux, needs g++); exact = bit-identical
+ITM_DIFF_EXACT=1 ITM_REFERENCE_LIB=$(tools/build_itm_reference.sh) python3 -m pytest tests/test_differential.py
 ```
 
 ## Package layout
