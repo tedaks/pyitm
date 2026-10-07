@@ -22,11 +22,15 @@ git -C "$src_dir" checkout -q FETCH_HEAD
 
 sed -i 's#\.\.\\include\\#../include/#' "$src_dir"/src/*.cpp
 
-# -ffp-contract=off: never fuse a*b+c into an FMA. GCC defaults to contracting on
-# targets with FMA (aarch64 always; x86-64 with -march), and Python never fuses, so
-# without this tests/test_differential.py could not demand bit-identical results
-# (ITM_DIFF_EXACT=1). No -ffast-math / -march=native for the same reason.
-g++ -std=c++17 -O2 -ffp-contract=off -fPIC -shared '-D__declspec(x)=' \
+# Plain IEEE evaluation, the same on every architecture (Python never fuses ops):
+#   -ffp-contract=off   never fuse a*b+c into an FMA (GCC's default on aarch64).
+#   -fcx-fortran-rules  expand std::complex division inline (Smith's method) instead
+#                       of calling libgcc's __divdc3; on aarch64 that precompiled
+#                       routine uses FMA, which -ffp-contract=off cannot reach, and it
+#                       changed the last bit of ~0.02% of p2p results. Identical to
+#                       __divdc3 on x86_64 for finite operands (exact differential).
+# No -ffast-math / -march=native. tests/test_differential.py (ITM_DIFF_EXACT=1) relies on this.
+g++ -std=c++17 -O2 -ffp-contract=off -fcx-fortran-rules -fPIC -shared '-D__declspec(x)=' \
     -I"$src_dir/include" "$src_dir"/src/*.cpp -o "$out_dir/libitm.so"
 
 echo "$(cd "$out_dir" && pwd)/libitm.so"

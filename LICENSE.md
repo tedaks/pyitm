@@ -22,8 +22,9 @@ master `183ad95bd813a8be11009df396e1c631356864b2`, 2024-09-24). Changes, from
 - two input checks the C++ lacks, at entry points where it has undefined behaviour
   (a terrain profile with fewer than 2 points; a PFL whose header declares more
   points than it holds);
-- otherwise the arithmetic is unchanged: results are bit-identical to the C++ on
-  Linux x86_64 and aarch64 (see README, "Numerical fidelity").
+- otherwise the arithmetic is unchanged: results are bit-identical to the C++
+  evaluated in plain IEEE arithmetic, verified on Linux x86_64 and aarch64 (see
+  README, "Numerical fidelity").
 
 The change history is in CHANGELOG.md.
 

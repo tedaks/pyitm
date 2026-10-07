@@ -24,7 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - p2p is faster on long profiles while staying bit-identical: the sequential sums run through `np.add.accumulate` (strictly left to right, the C++ order) and the delta-h resampling jumps k points at once (`x_pos - k` gives the same bits as k exact `-= 1.0`). 10,000-point profile: 1.28 ms in 0.2.x, 0.68 ms now (the first bit-exact version, using plain loops, took 2.41 ms).
 - Test data from the repo root (`p2p.csv`, `pfls.csv`, `area.csv`, synthetic) moved to `tests/data/synthetic/`
 - Ruff adds `B`, `UP`, `NPY`; `mypy --strict` runs in CI
-- C++ reference built with `-ffp-contract=off` (no FMA on any architecture)
+- C++ reference built with `-ffp-contract=off -fcx-fortran-rules`: no fused multiply-adds on any architecture. On aarch64 a stock build's complex division (libgcc `__divdc3`) uses FMA and changed the last bit of ~0.02% of p2p results, found by the new aarch64 differential; pyitm-ng was already the same on both architectures.
 - `release.yml` refuses to publish unless `CHANGELOG.md` has a `## [X.Y.Z] - YYYY-MM-DD` section for the tag, and runs the bit-exact differential before publishing
 
 ### Added
