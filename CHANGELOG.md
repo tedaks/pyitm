@@ -8,6 +8,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Bit-identical with the C++ on the whole valid input space, not just typical paths.** Fuzzing the full documented ranges (heights to 3000 m, percentiles 0.001–99.999 %, profiles from 2 points, boundary values) found four ways the port crashed or diverged where the C++ returns a result (~370 per 8,000 cases). Fixed:
+  - 2-point (1-interval) profiles raised `attempt to get argmax of an empty sequence`; `find_horizons` now returns early like the C++ loop
+  - `math.log`/`log10`/`sqrt`/`exp`/`pow`/`sin`/`cos` raised where C libm returns nan/±inf (e.g. Vogler's B_0 < 0 at high antennas → `log10` of a negative number); all scalar math now goes through `pyitm_ng/_cfloat.py` with C semantics, checked against libm in `tests/test_cfloat.py`. Builtin `pow` with a negative base and fractional exponent returned a complex number (latent) and is fixed by the same change
+  - `max`/`min` disagree with the C `MAX`/`MIN` macros on nan (each discards it in the opposite argument position); the two `DIM` sites were written as `max(a - b, 0)`. All 36 sites now use the exact C construct and argument order
+  - `cmath.sqrt` differs from glibc's `csqrt` for purely imaginary arguments: at `epsilon == 1` the C++ rejects the ground impedance (error 1013) and Python could return a result. `c_csqrt` ports glibc's algorithm line for line (with libm `hypot` via `abs(complex)`: CPython's `math.hypot` is a different algorithm)
+- New `Warnings.REFERENCE_ATTENUATION_NAN` (bit `1 << 30`): set where the C++ silently turns a NaN reference attenuation into 0 dB (~0.4% of valid inputs). `A__db` stays bit-identical to the C++.
+- `TerrainProfile`: hash consistent with equality for `-0.0` vs `0.0`; pickling and copying rebuild through validation, so the elevations stay read-only in multiprocessing workers
+- The differential test samples the full input space with boundary values over-sampled; `ITM_DIFF_SEED` varies the draw
 - **Breaking — invalid input raises instead of computing.** Inputs the C++ turns into nan, a wrong answer or a crash now raise at the entry points (documented deviations, `CLAUDE.md`):
   - any NaN or infinity in a float argument or a terrain elevation: `ValueError` naming the argument / first bad index (was: `ValueError: cannot convert float NaN to integer`, `ZeroDivisionError`, or a silent `nan` result for NaN `f__mhz`, `epsilon`, `sigma`, `time`, ...)
   - terrain `resolution` <= 0: `ValueError` (was `ZeroDivisionError` / `math domain error`)
@@ -46,6 +54,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `tests/test_ntia_reference.py`: p2p and area cases from the CSVs shipped with NTIA/itm (`tests/data/ntia/`, real terrain profiles); results must round to the published values
 - `test_p2p_returns_python_floats`: guards against numpy scalars in the scalar code path
 - `tests/test_validation.py`: 79 cases for the input checks above
+- `tests/test_edge_cases.py` (pinned C++ values for each edge bug, all failing on the previous code) and `tests/test_cfloat.py` (C-semantics helpers vs libm, incl. 45k `csqrt` inputs)
 - CI `test` job on macOS and Windows as well as Linux (Python 3.10–3.14), backing the "OS Independent" classifier. It found that the tests read files with the platform default encoding (cp1252 on Windows); every read now says `utf-8`, and CI runs with `-X warn_default_encoding -W error::EncodingWarning` so an unspecified encoding fails on Linux too.
 - Differential on Linux aarch64 as well as x86_64, Python 3.10 and 3.14; exact test on 1,000-10,000 point profiles
 - CI `min-deps` job: every supported Python against its numpy floor

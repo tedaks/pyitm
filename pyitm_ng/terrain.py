@@ -3,7 +3,8 @@ from __future__ import annotations
 import math
 import numpy as np
 import numpy.typing as npt
-from pyitm_ng._constants import PI, H_3__meter, sq
+from pyitm_ng._cfloat import c_exp, c_fdim, c_max, c_min, c_sin, c_sqrt, sq
+from pyitm_ng._constants import PI, H_3__meter
 from pyitm_ng.models import TerrainProfile
 from pyitm_ng.variability import linear_least_squares_fit
 
@@ -32,6 +33,11 @@ def find_horizons(
         -(z_rx - z_tx) / d__meter - d__meter / (2.0 * a_e__meter),
     ]
     d_hzn__meter = [d__meter, d__meter]
+
+    # FindHorizons.cpp: for (i = 1; i < np; i++) runs zero times for a 1-interval
+    # (2-point) profile; np.argmax would raise on the empty interior.
+    if np_ < 2:
+        return theta_hzn, d_hzn__meter
 
     # Vectorized computation of horizon angles.
     # Distances are built by sequential accumulation (d_tx += xi, d_rx -= xi) as in
@@ -125,7 +131,7 @@ def compute_delta_h(
     delta_h_d__meter = q10 - q90
 
     return delta_h_d__meter / (
-        1.0 - 0.8 * math.exp(-(d_end__meter - d_start__meter) / 50e3)
+        1.0 - 0.8 * c_exp(-(d_end__meter - d_start__meter) / 50e3)
     )
 
 
@@ -150,8 +156,8 @@ def quick_pfl(
     )
 
     # Start/end of terrain region to analyse (ignore ~15x tower height near each terminal)
-    d_start__meter = min(15.0 * h__meter[0], 0.1 * d_hzn__meter[0])
-    d_end__meter = d__meter - min(15.0 * h__meter[1], 0.1 * d_hzn__meter[1])
+    d_start__meter = c_min(15.0 * h__meter[0], 0.1 * d_hzn__meter[0])
+    d_end__meter = d__meter - c_min(15.0 * h__meter[1], 0.1 * d_hzn__meter[1])
 
     delta_h__meter = compute_delta_h(
         elevations, resolution, d_start__meter, d_end__meter
@@ -164,26 +170,26 @@ def quick_pfl(
         fit_tx, fit_rx = linear_least_squares_fit(
             elevations, resolution, d_start__meter, d_end__meter
         )
-        h_e__meter[0] = h__meter[0] + max(float(elevations[0]) - fit_tx, 0.0)
-        h_e__meter[1] = h__meter[1] + max(float(elevations[np_]) - fit_rx, 0.0)
+        h_e__meter[0] = h__meter[0] + c_fdim(float(elevations[0]), fit_tx)
+        h_e__meter[1] = h__meter[1] + c_fdim(float(elevations[np_]), fit_rx)
 
         for i in range(2):
-            d_hzn__meter[i] = math.sqrt(2.0 * h_e__meter[i] * a_e__meter) * math.exp(
-                -0.07 * math.sqrt(delta_h__meter / max(h_e__meter[i], 5.0))
+            d_hzn__meter[i] = c_sqrt(2.0 * h_e__meter[i] * a_e__meter) * c_exp(
+                -0.07 * c_sqrt(delta_h__meter / c_max(h_e__meter[i], 5.0))
             )
 
         if d_hzn__meter[0] + d_hzn__meter[1] <= d__meter:
             q = sq(d__meter / (d_hzn__meter[0] + d_hzn__meter[1]))
             for i in range(2):
                 h_e__meter[i] *= q
-                d_hzn__meter[i] = math.sqrt(
+                d_hzn__meter[i] = c_sqrt(
                     2.0 * h_e__meter[i] * a_e__meter
-                ) * math.exp(
-                    -0.07 * math.sqrt(delta_h__meter / max(h_e__meter[i], 5.0))
+                ) * c_exp(
+                    -0.07 * c_sqrt(delta_h__meter / c_max(h_e__meter[i], 5.0))
                 )
 
         for i in range(2):
-            q = math.sqrt(2.0 * h_e__meter[i] * a_e__meter)
+            q = c_sqrt(2.0 * h_e__meter[i] * a_e__meter)
             theta_hzn[i] = (
                 0.65 * delta_h__meter * (q / d_hzn__meter[i] - 1.0)
                 - 2.0 * h_e__meter[i]
@@ -193,12 +199,12 @@ def quick_pfl(
         fit_tx, _ = linear_least_squares_fit(
             elevations, resolution, d_start__meter, 0.9 * d_hzn__meter[0]
         )
-        h_e__meter[0] = h__meter[0] + max(float(elevations[0]) - fit_tx, 0.0)
+        h_e__meter[0] = h__meter[0] + c_fdim(float(elevations[0]), fit_tx)
 
         _, fit_rx = linear_least_squares_fit(
             elevations, resolution, d__meter - 0.9 * d_hzn__meter[1], d_end__meter
         )
-        h_e__meter[1] = h__meter[1] + max(float(elevations[np_]) - fit_rx, 0.0)
+        h_e__meter[1] = h__meter[1] + c_fdim(float(elevations[np_]), fit_rx)
 
     return theta_hzn, d_hzn__meter, h_e__meter, delta_h__meter, d__meter
 
@@ -224,18 +230,18 @@ def initialize_area(
             B = 4.0 if site_criteria[i] == 1 else 9.0  # CAREFUL vs VERY_CAREFUL
 
             if h__meter[i] < 5.0:
-                B = B * math.sin(0.1 * PI * h__meter[i])
+                B = B * c_sin(0.1 * PI * h__meter[i])
 
             # [Algorithm, Eqn 3.2]
-            h_e__meter[i] = h__meter[i] + (1.0 + B) * math.exp(
-                -min(20.0, 2.0 * h__meter[i] / max(1e-3, delta_h__meter))
+            h_e__meter[i] = h__meter[i] + (1.0 + B) * c_exp(
+                -c_min(20.0, 2.0 * h__meter[i] / c_max(1e-3, delta_h__meter))
             )
 
-        d_Ls__meter = math.sqrt(2.0 * h_e__meter[i] / gamma_e)
+        d_Ls__meter = c_sqrt(2.0 * h_e__meter[i] / gamma_e)
 
         # [Algorithm, Eqn 3.3]
-        d_hzn__meter[i] = d_Ls__meter * math.exp(
-            -0.07 * math.sqrt(delta_h__meter / max(h_e__meter[i], H_3__meter))
+        d_hzn__meter[i] = d_Ls__meter * c_exp(
+            -0.07 * c_sqrt(delta_h__meter / c_max(h_e__meter[i], H_3__meter))
         )
 
         # [Algorithm, Eqn 3.4]

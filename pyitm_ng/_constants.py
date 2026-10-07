@@ -10,12 +10,6 @@ a_9000__meter = 9000e3  # reference radius for variability effective distance
 
 
 
-def sq(x: float) -> float:
-    """C++ pow(x, 2). GCC folds it to x*x; Python's x**2 calls libm pow(), which is
-    not correctly rounded and differs from x*x in the last bit for ~0.1% of inputs."""
-    return x * x
-
-
 # Wavenumber denominator: wn = f_mhz / WN_DENOM  [Algorithm]
 WN_DENOM = 47.7
 
@@ -50,6 +44,13 @@ WARN__TX_HORIZON_DISTANCE_2 = 0x0800
 WARN__RX_HORIZON_DISTANCE_2 = 0x1000
 WARN__EXTREME_VARIABILITIES = 0x2000
 WARN__SURFACE_REFRACTIVITY = 0x4000
+# pyitm-ng only (not an NTIA bit; kept far above NTIA's 0x0001-0x4000 range): the
+# reference attenuation came out nan (in practice: the diffraction step broke down)
+# and, exactly as in the C++, MAX(A_ref, 0) turned it into 0 dB, so A__db is free-space
+# loss plus variability. A__db still matches the C++ bit for bit; this flag says not
+# to trust it.
+WARN__REFERENCE_ATTENUATION_NAN = 0x40000000
+PYITM_ONLY_WARNINGS = WARN__REFERENCE_ATTENUATION_NAN
 
 # Internal mode flags (not public)
 MODE__P2P = 0

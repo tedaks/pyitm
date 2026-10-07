@@ -23,6 +23,8 @@ master `183ad95bd813a8be11009df396e1c631356864b2`, 2024-09-24). Changes, from
   undefined behaviour, a crash, nan or a wrong answer: non-finite numbers, terrain
   with fewer than 2 points or a resolution <= 0, a PFL whose header declares more
   points than it holds, and non-integer enum arguments;
+- one extra warning bit, REFERENCE_ATTENUATION_NAN (1 << 30), set where the C++
+  silently turns a nan reference attenuation into 0 dB (the value itself is unchanged);
 - otherwise the arithmetic is unchanged: results are bit-identical to the C++
   evaluated in plain IEEE arithmetic, verified on Linux x86_64 and aarch64 (see
   README, "Numerical fidelity").

@@ -4,8 +4,8 @@ import math
 import numpy as np
 import numpy.typing as npt
 
+from pyitm_ng._cfloat import c_exp, c_fdim, c_log, c_pow, c_sqrt, sq
 from pyitm_ng._constants import (
-    sq,
     a_9000__meter,
     WN_DENOM,
     THIRD,
@@ -56,8 +56,8 @@ def iccdf(q: float) -> float:
 
     x = q if q <= 0.5 else 1.0 - q
     # C log(): log(0) = -inf, log(<0) = nan; math.log raises on both.
-    log_x = math.log(x) if x > 0.0 else (-math.inf if x == 0.0 else math.nan)
-    T_x = math.sqrt(-2.0 * log_x) if log_x <= 0.0 else math.nan
+    # C log()/sqrt(): log(0) = -inf -> T_x = inf; a negative x gives nan.
+    T_x = c_sqrt(-2.0 * c_log(x))
     zeta_x = ((C_2 * T_x + C_1) * T_x + C_0) / (
         ((D_3 * T_x + D_2) * T_x + D_1) * T_x + 1.0
     )
@@ -67,12 +67,12 @@ def iccdf(q: float) -> float:
 
 def terrain_roughness(d__meter: float, delta_h__meter: float) -> float:
     """Compute delta_h_d: terrain roughness at distance d. [ERL 79-ITS 67, Eqn 3]"""
-    return delta_h__meter * (1.0 - 0.8 * math.exp(-d__meter / 50e3))
+    return delta_h__meter * (1.0 - 0.8 * c_exp(-d__meter / 50e3))
 
 
 def sigma_h_function(delta_h__meter: float) -> float:
     """RMS deviation of terrain within first Fresnel zone. [ERL 79-ITS 67, Eqn 3.6a]"""
-    return 0.78 * delta_h__meter * math.exp(-0.5 * delta_h__meter**0.25)
+    return 0.78 * delta_h__meter * c_exp(-0.5 * c_pow(delta_h__meter, 0.25))
 
 
 def linear_least_squares_fit(
@@ -92,12 +92,12 @@ def linear_least_squares_fit(
     """
     np_ = len(elevations) - 1  # number of intervals
 
-    i_start = int(max(d_start / resolution - 0.0, 0.0))
-    i_end = np_ - int(max(np_ - d_end / resolution, 0.0))
+    i_start = int(c_fdim(d_start / resolution, 0.0))
+    i_end = np_ - int(c_fdim(np_, d_end / resolution))
 
     if i_end <= i_start:
-        i_start = int(max(i_start - 1.0, 0.0))
-        i_end = np_ - int(max(np_ - (i_end + 1.0), 0.0))
+        i_start = int(c_fdim(i_start, 1.0))
+        i_end = np_ - int(c_fdim(np_, i_end + 1.0))
 
     x_length = float(i_end - i_start)
     mid_shifted_index = -0.5 * x_length
@@ -168,9 +168,9 @@ def variability(
     wn = f__mhz / WN_DENOM
 
     d_ex__meter = (
-        math.sqrt(2 * a_9000__meter * h_e__meter[0])
-        + math.sqrt(2 * a_9000__meter * h_e__meter[1])
-        + pow(575.7e12 / wn, THIRD)
+        c_sqrt(2 * a_9000__meter * h_e__meter[0])
+        + c_sqrt(2 * a_9000__meter * h_e__meter[1])
+        + c_pow(575.7e12 / wn, THIRD)
     )
     d_e__meter = (
         130e3 * d__meter / d_ex__meter
@@ -185,7 +185,7 @@ def variability(
     if plus20:
         mdvar_internal -= 20
 
-    sigma_S = 0.0 if plus20 else 5.0 + 3.0 * math.exp(-d_e__meter / D_SCALE__meter)
+    sigma_S = 0.0 if plus20 else 5.0 + 3.0 * c_exp(-d_e__meter / D_SCALE__meter)
 
     plus10 = mdvar_internal >= 10
     if plus10:
@@ -218,7 +218,7 @@ def variability(
         sigma_L = 10.0 * wn * delta_h_d__meter / (wn * delta_h_d__meter + 13.0)
     Y_L = sigma_L * z_L
 
-    q = math.log(0.133 * wn)
+    q = c_log(0.133 * wn)
     g_minus = _BFM1[ci] + _BFM2[ci] / (sq(_BFM3[ci] * q) + 1.0)
     g_plus = _BFP1[ci] + _BFP2[ci] / (sq(_BFP3[ci] * q) + 1.0)
 
@@ -246,16 +246,16 @@ def variability(
 
     if mdvar_internal == SINGLE_MESSAGE:
         Y_R = 0.0
-        Y_S = math.sqrt(sq(sigma_T) + sq(sigma_L) + Y_S_temp) * z_S
+        Y_S = c_sqrt(sq(sigma_T) + sq(sigma_L) + Y_S_temp) * z_S
     elif mdvar_internal == ACCIDENTAL:
         Y_R = Y_T
-        Y_S = math.sqrt(sq(sigma_L) + Y_S_temp) * z_S
+        Y_S = c_sqrt(sq(sigma_L) + Y_S_temp) * z_S
     elif mdvar_internal == MOBILE:
-        Y_R = math.sqrt(sq(sigma_T) + sq(sigma_L)) * z_T
-        Y_S = math.sqrt(Y_S_temp) * z_S
+        Y_R = c_sqrt(sq(sigma_T) + sq(sigma_L)) * z_T
+        Y_S = c_sqrt(Y_S_temp) * z_S
     else:
         Y_R = Y_T + Y_L
-        Y_S = math.sqrt(Y_S_temp) * z_S
+        Y_S = c_sqrt(Y_S_temp) * z_S
 
     result = A_ref__db - V_med__db - Y_R - Y_S
 
