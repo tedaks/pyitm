@@ -4,7 +4,7 @@ import math
 import numpy as np
 import numpy.typing as npt
 
-from pyitm_ng._cfloat import c_exp, c_fdim, c_log, c_pow, c_sqrt, sq
+from pyitm_ng._cfloat import c_exp, c_fdim, c_log, c_pow, c_sqrt, ieee_div, sq
 from pyitm_ng._constants import (
     a_9000__meter,
     WN_DENOM,
@@ -120,8 +120,10 @@ def linear_least_squares_fit(
             np.add.accumulate(np.concatenate(([scaled_sum_y], inner * shifted)))[-1]
         )
 
-    sum_y /= x_length
-    scaled_sum_y = scaled_sum_y * 12.0 / ((x_length * x_length + 2.0) * x_length)
+    # x_length can be 0 for a degenerate index range: the C++ divides by zero and
+    # carries +-inf/nan into the fit instead of raising.
+    sum_y = ieee_div(sum_y, x_length)
+    scaled_sum_y = ieee_div(scaled_sum_y * 12.0, (x_length * x_length + 2.0) * x_length)
 
     fit_y1 = sum_y - scaled_sum_y * mid_shifted_end
     fit_y2 = sum_y + scaled_sum_y * (np_ - mid_shifted_end)

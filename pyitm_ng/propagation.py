@@ -116,7 +116,7 @@ def smooth_earth_diffraction(
 
     # 3 radii [Vogler 1964, Eqn 3 re-arranged]
     a__meter = [
-        (d__meter - d_ML__meter) / (d__meter / a_e__meter - theta_los),
+        ieee_div(d__meter - d_ML__meter, d__meter / a_e__meter - theta_los),
         0.5 * sq(d_hzn__meter[0]) / h_e__meter[0],
         0.5 * sq(d_hzn__meter[1]) / h_e__meter[1],
     ]
@@ -126,7 +126,7 @@ def smooth_earth_diffraction(
         d_hzn__meter[1] / 1000.0,
     ]
 
-    C_0 = [c_pow((4.0 / 3.0) * a_0__meter / a__meter[i], THIRD) for i in range(3)]
+    C_0 = [c_pow(ieee_div((4.0 / 3.0) * a_0__meter, a__meter[i]), THIRD) for i in range(3)]
     # [Vogler 1964, Eqn 6a / 7a]
     K = [0.017778 * C_0[i] * c_pow(f__mhz, -THIRD) / abs(Z_g) for i in range(3)]
     B_0 = [1.607 - K[i] for i in range(3)]
@@ -149,7 +149,10 @@ def h0_curve(j: int, r: float) -> float:
     """Curve fit helper for H_0(). [Algorithm, 6.13]"""
     a = [25.0, 80.0, 177.0, 395.0, 705.0]
     b = [24.0, 45.0, 68.0, 80.0, 105.0]
-    return 10.0 * c_log10(1.0 + a[j] * c_pow(1.0 / r, 4.0) + b[j] * sq(1.0 / r))
+    # r can be 0 or negative here: TroposcatterLoss returns early only when *both*
+    # r_1 and r_2 are below 0.2 (TroposcatterLoss.cpp:81). The C++ gives 1/0 = inf.
+    inv_r = ieee_div(1.0, r)
+    return 10.0 * c_log10(1.0 + a[j] * c_pow(inv_r, 4.0) + b[j] * sq(inv_r))
 
 
 def h0_function(r: float, eta_s: float) -> float:
@@ -237,9 +240,11 @@ def troposcatter_loss(
 
         if eta_s < 1.0:
             H_0 = eta_s * H_0 + (1.0 - eta_s) * 10.0 * c_log10(
-                sq((1.0 + SQRT2 / r_1) * (1.0 + SQRT2 / r_2))
-                * (r_1 + r_2)
-                / (r_1 + r_2 + 2.0 * SQRT2)
+                ieee_div(
+                    sq((1.0 + ieee_div(SQRT2, r_1)) * (1.0 + ieee_div(SQRT2, r_2)))
+                    * (r_1 + r_2),
+                    r_1 + r_2 + 2.0 * SQRT2,
+                )
             )
 
         if H_0 > 15.0 and h0 >= 0.0:
@@ -285,9 +290,10 @@ def line_of_sight_loss(
 
     q = sq(R_e.real) + sq(R_e.imag)
     if q < 0.25 or q < sin_psi:
-        R_e = R_e * c_sqrt(sin_psi / q)
+        # q can be 0 exactly here (R_e == 0): sqrt(sin_psi / 0) is inf in the C++.
+        R_e = R_e * c_sqrt(ieee_div(sin_psi, q))
 
-    delta_phi = wn * 2.0 * h_e__meter[0] * h_e__meter[1] / d__meter
+    delta_phi = ieee_div(wn * 2.0 * h_e__meter[0] * h_e__meter[1], d__meter)
     if delta_phi > PI / 2.0:
         delta_phi = PI - sq(PI / 2.0) / delta_phi
 
@@ -403,13 +409,15 @@ def longley_rice(
     effective earth radius, ground impedance).
     """
     warnings = 0
-    a_e__meter = 1.0 / gamma_e
+    # gamma_e can be 0 or +-inf (N_s outside [150, 400]: the C++ computes a_e = +-inf
+    # and then fails its a_e range check, LongleyRice.cpp:78, instead of raising).
+    a_e__meter = ieee_div(1.0, gamma_e)
 
     d_hzn_s__meter = [c_sqrt(2.0 * h_e__meter[i] * a_e__meter) for i in range(2)]
     d_sML__meter = d_hzn_s__meter[0] + d_hzn_s__meter[1]
     d_ML__meter = d_hzn__meter[0] + d_hzn__meter[1]
 
-    theta_los = -c_max(theta_hzn[0] + theta_hzn[1], -d_ML__meter / a_e__meter)
+    theta_los = -c_max(theta_hzn[0] + theta_hzn[1], ieee_div(-d_ML__meter, a_e__meter))
 
     # Horizon angle warnings
     if math.fabs(theta_hzn[0]) > 200e-3:
@@ -477,7 +485,9 @@ def longley_rice(
         f__mhz,
     )
 
-    M_d = (A_4__db - A_3__db) / (d_4__meter - d_3__meter)
+    # d_4 - d_3 == 0 once d_3 is large enough that adding 10*X rounds away (the C++
+    # divides by zero there and carries +-inf/nan into M_d).
+    M_d = ieee_div(A_4__db - A_3__db, d_4__meter - d_3__meter)
     A_d0__db = A_3__db - M_d * d_3__meter
 
     d_min__meter = math.fabs(h_e__meter[0] - h_e__meter[1]) / 200e-3
@@ -500,7 +510,7 @@ def longley_rice(
             d_0__meter = c_min(d_0__meter, 0.5 * d_ML__meter)
             d_1__meter = d_0__meter + 0.25 * (d_ML__meter - d_0__meter)
         else:
-            d_1__meter = c_max(-A_d0__db / M_d, 0.25 * d_ML__meter)
+            d_1__meter = c_max(ieee_div(-A_d0__db, M_d), 0.25 * d_ML__meter)
 
         A_1__db = line_of_sight_loss(
             d_1__meter,
@@ -531,29 +541,25 @@ def longley_rice(
             q = c_log(d_sML__meter / d_0__meter)
             kHat_2 = c_max(
                 0.0,
-                (
+                ieee_div(
                     (d_sML__meter - d_0__meter) * (A_1__db - A_0__db)
-                    - (d_1__meter - d_0__meter) * (A_sML__db - A_0__db)
-                )
-                / (
+                    - (d_1__meter - d_0__meter) * (A_sML__db - A_0__db),
                     (d_sML__meter - d_0__meter) * c_log(d_1__meter / d_0__meter)
-                    - (d_1__meter - d_0__meter) * q
+                    - (d_1__meter - d_0__meter) * q,
                 ),
             )
             flag = A_d0__db > 0.0 or kHat_2 > 0.0
 
             if flag:
-                kHat_1 = (A_sML__db - A_0__db - kHat_2 * q) / (
-                    d_sML__meter - d_0__meter
-                )
+                kHat_1 = ieee_div(A_sML__db - A_0__db - kHat_2 * q, d_sML__meter - d_0__meter)
                 if kHat_1 < 0.0:
                     kHat_1 = 0.0
-                    kHat_2 = c_dim(A_sML__db, A_0__db) / q
+                    kHat_2 = ieee_div(c_dim(A_sML__db, A_0__db), q)
                     if kHat_2 == 0.0:
                         kHat_1 = M_d
 
         if not flag:
-            kHat_1 = c_dim(A_sML__db, A_1__db) / (d_sML__meter - d_1__meter)
+            kHat_1 = ieee_div(c_dim(A_sML__db, A_1__db), d_sML__meter - d_1__meter)
             kHat_2 = 0.0
             if kHat_1 == 0.0:
                 kHat_1 = M_d

@@ -9,7 +9,7 @@ import platform
 import numpy as np
 import pytest
 
-from pyitm_ng import Polarization, TerrainProfile, Warnings, predict_p2p
+from pyitm_ng import Polarization, TerrainProfile, Warnings, predict_area, predict_p2p
 
 
 # Bit-identity with the C++ is claimed (and the values below were computed) on Linux
@@ -25,6 +25,15 @@ def _p2p(pfl, h_tx, h_rx, f, pol=Polarization.VERTICAL, epsilon=15.0, sigma=0.00
     return predict_p2p(
         h_tx__meter=h_tx, h_rx__meter=h_rx, terrain=TerrainProfile.from_pfl(pfl), climate=5,
         N_0=301.0, f__mhz=f, pol=pol, epsilon=epsilon, sigma=sigma, mdvar=12,
+        time=50.0, location=50.0, situation=50.0,
+    )
+
+
+def _area(delta_h__meter, h_tx=10.0, h_rx=2.0, tx_siting=0, rx_siting=0, d__km=50.0):
+    return predict_area(
+        h_tx__meter=h_tx, h_rx__meter=h_rx, tx_siting=tx_siting, rx_siting=rx_siting,
+        d__km=d__km, delta_h__meter=delta_h__meter, climate=3, N_0=301.0, f__mhz=230.0,
+        pol=Polarization.VERTICAL, epsilon=15.0, sigma=0.008, mdvar=12,
         time=50.0, location=50.0, situation=50.0,
     )
 
@@ -100,3 +109,43 @@ def test_ground_impedance_extremes_never_divide_by_zero(pol, epsilon, sigma):
         assert "Ground impedance" in str(e)
     else:
         assert isinstance(r.A__db, float)
+
+
+# delta_h has no upper bound: the C++ only rejects negative values, and past these
+# thresholds its own arithmetic divides by zero (IEEE => +-inf/nan, which MAX() then
+# folds into a finite dB), so the answer is the *same* as for a moderate delta_h.
+# The port used to raise ZeroDivisionError at a__meter[2] (~1.4768e8 m, Vogler's third
+# radius underflows to 0.0) and at d_hzn (~5.6655e8 m, the horizon distance itself).
+@pytest.mark.parametrize("delta_h, h_rx, siting, expected, warn", [
+    (1e8, 2.0, 0, 112.82307201162544, 0x780),
+    (1.4768244668e8, 2.0, 0, 112.82307201162544, 0x780),  # first value that raised before the fix
+    (5.6655e8, 2.0, 0, 112.82307201162544, 0x780),       # d_hzn becomes exactly 0.0
+    (6e8, 2.0, 0, 112.82307201162544, 0x780),
+    (1e9, 0.5, 0, 112.74664776340146, 0x782),
+    (1e12, 2.0, 2, 113.0530463276956, 0x780),
+    (1e300, 3000.0, 2, 113.62766445834984, 0x782),
+])
+def test_extreme_delta_h_matches_cpp(delta_h, h_rx, siting, expected, warn):
+    r = _area(delta_h, h_rx=h_rx, tx_siting=siting, rx_siting=siting)
+    assert r.A__db == _cpp(expected)
+    assert r.warnings & ~Warnings.REFERENCE_ATTENUATION_NAN == warn
+
+
+# resolution has no upper bound either (finite and > 0 is all TerrainProfile checks), so
+# a profile can imply a path millions of times longer than the model's range. The C++
+# divides path distances there (d_4 - d_3 rounds to 0.0, Vogler's radii can be 0).
+@pytest.mark.parametrize("n, resolution, expected", [
+    (10, 3e9, 5214464815.792534),
+    (10, 1e12, 277.8528761359173),
+    (10, 1e30, 637.8528761359174),
+    (3, 1e30, 624.7886258604105),
+])
+def test_extreme_path_distance_matches_cpp(n, resolution, expected):
+    r = predict_p2p(
+        h_tx__meter=10.0, h_rx__meter=2.0,
+        terrain=TerrainProfile(elevations=np.zeros(n), resolution=resolution), climate=3,
+        N_0=301.0, f__mhz=230.0, pol=Polarization.VERTICAL, epsilon=15.0, sigma=0.008,
+        mdvar=12, time=50.0, location=50.0, situation=50.0,
+    )
+    assert r.A__db == _cpp(expected)
+    assert r.warnings & ~Warnings.REFERENCE_ATTENUATION_NAN == 0x1998
