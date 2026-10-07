@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 import numpy as np
 import numpy.typing as npt
-from pyitm_ng._cfloat import c_exp, c_fdim, c_max, c_min, c_sin, c_sqrt, sq
+from pyitm_ng._cfloat import c_exp, c_fdim, c_max, c_min, c_sin, c_sqrt, ieee_div, sq
 from pyitm_ng._constants import PI, H_3__meter
 from pyitm_ng.models import TerrainProfile
 from pyitm_ng.variability import linear_least_squares_fit
@@ -28,9 +28,12 @@ def find_horizons(
     z_rx = float(elevations[np_]) + h__meter[1]
 
     # Initial horizon angles assuming line-of-sight
+    # a_e can be -0.0: with a median elevation low enough that N_s overflows, the C++
+    # computes 1/gamma_e = -0.0 and then fails its a_e range check (LongleyRice.cpp:78);
+    # the port must reach that ValueError instead of raising here.
     theta_hzn = [
-        (z_rx - z_tx) / d__meter - d__meter / (2.0 * a_e__meter),
-        -(z_rx - z_tx) / d__meter - d__meter / (2.0 * a_e__meter),
+        (z_rx - z_tx) / d__meter - ieee_div(d__meter, 2.0 * a_e__meter),
+        -(z_rx - z_tx) / d__meter - ieee_div(d__meter, 2.0 * a_e__meter),
     ]
     d_hzn__meter = [d__meter, d__meter]
 
@@ -149,7 +152,7 @@ def quick_pfl(
     np_ = len(elevations) - 1
 
     d__meter = np_ * resolution
-    a_e__meter = 1.0 / gamma_e
+    a_e__meter = ieee_div(1.0, gamma_e)
 
     theta_hzn, d_hzn__meter = find_horizons(
         elevations, resolution, h__meter, a_e__meter
@@ -179,7 +182,9 @@ def quick_pfl(
             )
 
         if d_hzn__meter[0] + d_hzn__meter[1] <= d__meter:
-            q = sq(d__meter / (d_hzn__meter[0] + d_hzn__meter[1]))
+            # The sum can be 0.0 (both recomputed horizons underflowed above): the C++
+            # divides by zero and carries +-inf/nan through q.
+            q = sq(ieee_div(d__meter, d_hzn__meter[0] + d_hzn__meter[1]))
             for i in range(2):
                 h_e__meter[i] *= q
                 d_hzn__meter[i] = c_sqrt(
@@ -190,10 +195,11 @@ def quick_pfl(
 
         for i in range(2):
             q = c_sqrt(2.0 * h_e__meter[i] * a_e__meter)
-            theta_hzn[i] = (
-                0.65 * delta_h__meter * (q / d_hzn__meter[i] - 1.0)
-                - 2.0 * h_e__meter[i]
-            ) / q
+            theta_hzn[i] = ieee_div(
+                0.65 * delta_h__meter * (ieee_div(q, d_hzn__meter[i]) - 1.0)
+                - 2.0 * h_e__meter[i],
+                q,
+            )
     else:
         # Beyond line-of-sight: fit near each terminal separately
         fit_tx, _ = linear_least_squares_fit(
@@ -245,8 +251,10 @@ def initialize_area(
         )
 
         # [Algorithm, Eqn 3.4]
+        # d_hzn can be 0.0 here (the exp above underflowed): the C++ divides by zero
+        # and propagates +-inf.
         theta_hzn[i] = (
-            0.65 * delta_h__meter * (d_Ls__meter / d_hzn__meter[i] - 1.0)
+            0.65 * delta_h__meter * (ieee_div(d_Ls__meter, d_hzn__meter[i]) - 1.0)
             - 2.0 * h_e__meter[i]
         ) / d_Ls__meter
 

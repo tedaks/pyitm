@@ -7,7 +7,10 @@ that they miss.
 
 Skipped unless ITM_REFERENCE_LIB points at a libitm.so built by
 tools/build_itm_reference.sh. ITM_DIFF_CASES sets the case count (default 1000), ITM_DIFF_SEED the draw (default 0).
-Inputs cover the full documented ranges, with boundary values over-sampled.
+Inputs cover the full documented ranges, with boundary values over-sampled, and every
+fourth case draws delta_h (area) or the profile resolution (p2p) from the decades past
+the documented range -- places where the C++ divides by zero in IEEE and carries the
+result on, so the port must not raise either.
 Tolerance: 0.01 dB; warning bitmasks and error/no-error must match exactly.
 ITM_DIFF_EXACT=1 tightens the tolerance to bit-identical A__db, which is what the
 fidelity policy in CLAUDE.md requires (a reordered reduction stays well inside
@@ -81,6 +84,35 @@ def _percent(rng):  # valid: (0, 100)
     return _pick(rng, 0.001, 99.999, [0.001, 0.01, 0.1, 1.0, 50.0, 99.0, 99.9, 99.99, 99.999], p_edge=0.25)
 
 
+# delta_h has no documented upper bound and the C++ accepts any value >= 0. Past
+# ~1.5e8 m Vogler's third radius underflows to 0.0 (a__meter[2]), and past ~5.7e8 m the
+# horizon distance d_hzn itself does, so the C++ divides by zero there -- IEEE gives
+# +-inf/nan and it carries the result on. Every fourth case draws from the decades above
+# that instead of only the comfortable [0, 3000] m band: the port used to raise
+# ZeroDivisionError where the C++ returned a value (audit round 3, F1).
+_DELTA_H = [0.0, 0.001, 3000.0, 1.476824467e8, 5.6655e8, 1e9, 1e12]
+
+
+def _delta_h(rng, extended):
+    if not extended:
+        return _pick(rng, 0.0, 3000.0, [0.0, 0.001, 3000.0])
+    return _pick(rng, 1e-3, 1e12, _DELTA_H, log=True)
+
+
+# resolution is a TerrainProfile argument with no upper bound either (finite and > 0 is
+# all that is validated), so a 600-point profile can span 6e302 m. The C++ divides path
+# distances there too -- d_4 - d_3 rounds to 0.0 once d is large enough, and both
+# a__meter[0] and Vogler's radii can be 0. Kept finite on purpose: d__meter == inf
+# overflows the reference's internal (int) casts and SIGSEGVs it.
+_RESOLUTION = [1.0, 10.0, 1000.0, 2000.0, 1e6, 1e9, 1e12, 1e30, 1e300]
+
+
+def _resolution(rng, n_intervals, extended):
+    if not extended:
+        return _pick(rng, 1.0, 2000.0, [1.0, 10.0, 1000.0], log=True)
+    return min(_pick(rng, 1e-3, 1e300, _RESOLUTION, log=True), 1e305 / n_intervals)
+
+
 def _common(rng):
     # climate, N_0, f__mhz, pol, epsilon, sigma, mdvar, time, location, situation
     return [
@@ -104,7 +136,7 @@ def _p2p_cases():
             n = rng.choice([1, 1, 2, 3, 5, 10])  # 1 interval = 2 points, the minimum
         else:
             n = rng.randint(1, 600)
-        resolution = _pick(rng, 1.0, 2000.0, [1.0, 10.0, 1000.0], log=True)
+        resolution = _resolution(rng, n, extended=k % 4 == 0)
         step_sd = rng.choice([0.5, 3.0, 15.0, 60.0])
         elevs = np.cumsum(np.random.default_rng(k + 1_000_003 * SEED).normal(0.0, step_sd, n + 1))
         elevs += rng.uniform(-50.0, 3000.0)
@@ -121,7 +153,7 @@ def _area_cases():
             rng.randint(0, 2),
             rng.randint(0, 2),
             _pick(rng, 0.001, 2000.0, [0.001, 1.0, 1000.0, 2000.0], log=True),
-            _pick(rng, 0.0, 3000.0, [0.0, 0.001, 3000.0]),
+            _delta_h(rng, extended=k % 4 == 0),
         ] + _common(rng)
 
 
@@ -285,6 +317,56 @@ def test_area_cr_matches_cpp_reference(lib):
             py = e
         _compare((rc, A.value, warn.value), py, f"area_cr case {k}", mismatches)
     assert not mismatches, f"{len(mismatches)}/{N_CASES} mismatches:\n" + "\n".join(mismatches[:20])
+
+
+# The audit that found F1 measured these boundaries: Vogler's third radius a__meter[2]
+# underflows to 0.0 at delta_h ~ 1.4768e8 m (h_e <= 5), and d_hzn itself reaches 0.0 at
+# ~5.6655e8 m; d_4 - d_3 rounds to 0.0 for a large enough path distance. All of them are
+# plain IEEE division by zero in the C++.
+EXTREME_DELTA_H = [1.0e8, 1.4768244667e8, 1.4768244668e8, 5.6655e8, 6.0e8, 1e9, 1e12, 1e300]
+EXTREME_RESOLUTION = [1e-3, 1.0, 2000.0, 1e6, 1e9, 1e12, 1e30, 1e100]
+
+
+def test_extreme_delta_h_matches_cpp(lib):
+    """Area mode with delta_h past both underflow thresholds (see _DELTA_H)."""
+    mismatches = []
+    for dh in EXTREME_DELTA_H:
+        for h_rx in (0.5, 2.0, 5.0, 10.0, 3000.0):
+            for tx_site, rx_site in ((0, 0), (2, 2)):
+                a = [10.0, h_rx, tx_site, rx_site, 50.0, dh] + [3, 301.0, 230.0, 1, 15.0,
+                                                               0.008, 12, 50.0, 50.0, 50.0]
+                A, warn = ctypes.c_double(), ctypes.c_long()
+                rc = lib.ITM_AREA_TLS(
+                    a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8], a[9], a[10], a[11],
+                    a[12], a[13], a[14], a[15], ctypes.byref(A), ctypes.byref(warn),
+                )
+                try:
+                    py = predict_area(
+                        h_tx__meter=a[0], h_rx__meter=a[1], tx_siting=SitingCriteria(a[2]),
+                        rx_siting=SitingCriteria(a[3]), d__km=a[4], delta_h__meter=a[5],
+                        climate=Climate(a[6]), N_0=a[7], f__mhz=a[8], pol=Polarization(a[9]),
+                        epsilon=a[10], sigma=a[11], mdvar=a[12], time=a[13], location=a[14],
+                        situation=a[15],
+                    )
+                except ValueError as e:
+                    py = e
+                _compare((rc, A.value, warn.value), py,
+                         f"area delta_h={dh!r} h_rx={h_rx} siting={tx_site}/{rx_site}", mismatches)
+    assert not mismatches, f"{len(mismatches)} mismatches:\n" + "\n".join(mismatches[:20])
+
+
+def test_extreme_resolution_matches_cpp(lib):
+    """Profiles whose implied path length is far past the model's range."""
+    mismatches = []
+    for resolution in EXTREME_RESOLUTION:
+        for n in (2, 3, 10, 600):
+            if n * resolution == float("inf"):
+                continue
+            pfl = [float(n - 1), resolution] + [0.0] * n
+            a = [10.0, 2.0] + [3, 301.0, 230.0, 1, 15.0, 0.008, 12, 50.0, 50.0, 50.0]
+            cpp, py = _run_p2p(lib, pfl, a)
+            _compare(cpp, py, f"p2p resolution={resolution!r} n={n}", mismatches)
+    assert not mismatches, f"{len(mismatches)} mismatches:\n" + "\n".join(mismatches[:20])
 
 
 def test_long_profiles_match_cpp_reference(lib):
