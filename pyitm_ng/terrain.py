@@ -2,13 +2,14 @@
 from __future__ import annotations
 import math
 import numpy as np
+import numpy.typing as npt
 from pyitm_ng._constants import PI, H_3__meter, sq
 from pyitm_ng.models import TerrainProfile
 from pyitm_ng.variability import linear_least_squares_fit
 
 
 def find_horizons(
-    elevations: np.ndarray,
+    elevations: npt.NDArray[np.float64],
     resolution: float,
     h__meter: tuple[float, float],
     a_e__meter: float,
@@ -61,7 +62,7 @@ def find_horizons(
 
 
 def compute_delta_h(
-    elevations: np.ndarray,
+    elevations: npt.NDArray[np.float64],
     resolution: float,
     d_start__meter: float,
     d_end__meter: float,

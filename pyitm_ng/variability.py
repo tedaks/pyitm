@@ -2,6 +2,7 @@
 from __future__ import annotations
 import math
 import numpy as np
+import numpy.typing as npt
 
 from pyitm_ng._constants import (
     sq,
@@ -75,7 +76,7 @@ def sigma_h_function(delta_h__meter: float) -> float:
 
 
 def linear_least_squares_fit(
-    elevations: np.ndarray,
+    elevations: npt.NDArray[np.float64],
     resolution: float,
     d_start: float,
     d_end: float,
