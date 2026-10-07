@@ -1,4 +1,5 @@
 # tests/test_models.py
+import pytest
 from pyitm_ng.models import (
     Climate,
     TerrainProfile,
@@ -26,11 +27,12 @@ def test_propagation_result_defaults():
     assert r.intermediate is None
 
 
-def test_terrain_profile_from_pfl_truncation():
-    pfl = [10, 100.0, 1.0, 2.0]
-    tp = TerrainProfile.from_pfl(pfl)
-    assert tp.resolution == 100.0
-    assert len(tp.elevations) == 2
+def test_terrain_profile_from_pfl_truncation_rejected():
+    # Header says 10 intervals (11 points) but only 2 values follow. Clamping would
+    # silently predict a shorter path than the caller described; the C++ reads past
+    # the array. Reject instead.
+    with pytest.raises(ValueError, match="declares 10 intervals .11 elevation points. but only 2 values"):
+        TerrainProfile.from_pfl([10, 100.0, 1.0, 2.0])
 
 
 def test_terrain_profile_from_pfl_trailing_garbage():

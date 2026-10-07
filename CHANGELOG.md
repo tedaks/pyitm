@@ -8,6 +8,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Breaking — invalid input raises instead of computing.** Inputs the C++ turns into nan, a wrong answer or a crash now raise at the entry points (documented deviations, `CLAUDE.md`):
+  - any NaN or infinity in a float argument or a terrain elevation: `ValueError` naming the argument / first bad index (was: `ValueError: cannot convert float NaN to integer`, `ZeroDivisionError`, or a silent `nan` result for NaN `f__mhz`, `epsilon`, `sigma`, `time`, ...)
+  - terrain `resolution` <= 0: `ValueError` (was `ZeroDivisionError` / `math domain error`)
+  - a PFL whose header declares more points than it holds: `ValueError` (was: computed a shorter path than described and only logged a warning)
+  - a non-integral PFL header: `ValueError`
+  - `climate`, `pol`, `mdvar`, `tx_siting`, `rx_siting` that are not integers or enum members (e.g. `mdvar=2.7`, `"2"`): `TypeError` (was silently truncated by `int()`); non-numeric float arguments: `TypeError`
+- `TerrainProfile` validates on construction, stores a read-only copy of the elevations, and compares and hashes by value (`==` used to raise, `hash()` too)
+- `PropagationResult.warnings` is a `Warnings` flag (an `int` subclass, so existing bit tests still work)
+- `climate`, `pol`, `mdvar` and siting parameters are typed `Enum | int`
 - **Breaking — renamed for PyPI:** distribution `pyitm` → `pyitm-ng` (the `pyitm` and `itm` names on PyPI belong to unrelated projects), import package `itm` → `pyitm_ng`. Update `from itm import …` to `from pyitm_ng import …`. (Entries for 0.1.0 and 0.2.0 below use the names of their time: distribution `pyitm`, package `itm/`.)
 - Version 0.3.0; `pyitm_ng.__version__` is the single source (read by `pyproject.toml`)
 - Package metadata for PyPI (description, readme, license file, classifiers, URLs); explicit package list so `tests/` and `tools/` are not installed
@@ -36,6 +45,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - CI `differential` job running the above on 5000 cases per mode
 - `tests/test_ntia_reference.py`: p2p and area cases from the CSVs shipped with NTIA/itm (`tests/data/ntia/`, real terrain profiles); results must round to the published values
 - `test_p2p_returns_python_floats`: guards against numpy scalars in the scalar code path
+- `tests/test_validation.py`: 79 cases for the input checks above
+- CI `test` job on macOS and Windows as well as Linux (Python 3.10–3.14), backing the "OS Independent" classifier. It found that the tests read files with the platform default encoding (cp1252 on Windows); every read now says `utf-8`, and CI runs with `-X warn_default_encoding -W error::EncodingWarning` so an unspecified encoding fails on Linux too.
 - Differential on Linux aarch64 as well as x86_64, Python 3.10 and 3.14; exact test on 1,000-10,000 point profiles
 - CI `min-deps` job: every supported Python against its numpy floor
 - `.github/workflows/upstream.yml`: weekly check of NTIA/itm `master` against the pin; opens an issue when it moves
@@ -47,6 +58,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - `itm/__init__.py` docstring listed only two of the four entry points; `documentation/functions.md` claimed validation against "FORTRAN 1.2.2" (it is validated against the C++ reference) and had a stale test table; `documentation/todo.md` still listed CR mode as open
 - **`find_horizons`**: horizon distances are again built by sequential accumulation (`d += xi`), as in the C++ reference, instead of `i * xi`. The vectorized form introduced in 0.2.0 differs in the last bit, which `int()` truncation in `linear_least_squares_fit` can turn into a different terrain index; on affected paths `predict_p2p` was off by up to ~1.9 dB. A differential run against NTIA/itm (C++, master `183ad95`) now matches exactly on 1000 random p2p and 1000 random area cases.
+- `tests/data/synthetic/pfls.csv` row 1 declared 199 intervals but held 190 values; its expected `A__db` is exactly the C++ result for 189 intervals, so the header was a typo. The old clamp hid it; corrected to 189.
 - README example: PFL header `99` means 99 intervals / 100 points (comment said 100 intervals); `mdvar` shown via `MDVar` (`MDVar.MOBILE + 10`) instead of a bare 12; footer said "Copyright NTIA" (NTIA's work is not under US copyright)
 - Added `test_find_horizons_distances_match_cpp_accumulation` and `test_p2p_horizon_distance_rounding_regression` (test count 68 → 70)
 

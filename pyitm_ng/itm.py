@@ -11,11 +11,15 @@ from pyitm_ng._constants import (
 )
 from pyitm_ng.models import (
     Climate,
+    MDVar,
     Polarization,
     SitingCriteria,
     TerrainProfile,
     IntermediateValues,
     PropagationResult,
+    Warnings,
+    require_finite,
+    require_int,
 )
 from pyitm_ng.terrain import quick_pfl, initialize_area
 from pyitm_ng.propagation import initialize_point_to_point, longley_rice, free_space_loss
@@ -57,7 +61,7 @@ def _validate_inputs(
         raise ValueError(f"h_rx__meter={h_rx__meter} out of range [0.5, 3000]")
 
     valid_climates = {1, 2, 3, 4, 5, 6, 7}
-    if int(climate) not in valid_climates:
+    if climate not in valid_climates:
         raise ValueError(f"climate={climate} is not a valid Climate value (1-7)")
 
     if N_0 < 250 or N_0 > 400:
@@ -69,7 +73,7 @@ def _validate_inputs(
     if f__mhz < 20 or f__mhz > 20000:
         raise ValueError(f"f__mhz={f__mhz} out of range [20, 20000]")
 
-    if int(pol) not in (0, 1):
+    if pol not in (0, 1):
         raise ValueError(f"pol={pol} must be 0 (HORIZONTAL) or 1 (VERTICAL)")
 
     if epsilon < 1:
@@ -81,7 +85,7 @@ def _validate_inputs(
     valid_mdvar = (
         set(range(0, 4)) | set(range(10, 14)) | set(range(20, 24)) | set(range(30, 34))
     )
-    if int(mdvar) not in valid_mdvar:
+    if mdvar not in valid_mdvar:
         raise ValueError(f"mdvar={mdvar} is not valid (0-3, 10-13, 20-23, 30-33)")
 
     if situation <= 0 or situation >= 100:
@@ -98,13 +102,13 @@ def predict_p2p(
     h_tx__meter: float,
     h_rx__meter: float,
     terrain: TerrainProfile,
-    climate: Climate,
+    climate: Climate | int,
     N_0: float,
     f__mhz: float,
-    pol: Polarization,
+    pol: Polarization | int,
     epsilon: float,
     sigma: float,
-    mdvar: int,
+    mdvar: MDVar | int,
     time: float,
     location: float,
     situation: float,
@@ -116,6 +120,17 @@ def predict_p2p(
     time, location, situation: percentages in (0, 100).
     mdvar: 0-3 base + optional +10 (no location var) and/or +20 (no situation var).
     """
+    h_tx__meter, h_rx__meter, N_0, f__mhz, epsilon, sigma, time, location, situation = (
+        require_finite(name, value)
+        for name, value in (
+            ("h_tx__meter", h_tx__meter), ("h_rx__meter", h_rx__meter), ("N_0", N_0),
+            ("f__mhz", f__mhz), ("epsilon", epsilon), ("sigma", sigma), ("time", time),
+            ("location", location), ("situation", situation),
+        )
+    )
+    climate, pol, mdvar = (
+        require_int("climate", climate), require_int("pol", pol), require_int("mdvar", mdvar)
+    )
     warnings = _validate_inputs(
         h_tx__meter,
         h_rx__meter,
@@ -200,23 +215,23 @@ def predict_p2p(
             mode=propmode,
         )
 
-    return PropagationResult(A__db=A__db, warnings=warnings, intermediate=inter)
+    return PropagationResult(A__db=A__db, warnings=Warnings(warnings), intermediate=inter)
 
 
 def predict_area(
     h_tx__meter: float,
     h_rx__meter: float,
-    tx_siting: SitingCriteria,
-    rx_siting: SitingCriteria,
+    tx_siting: SitingCriteria | int,
+    rx_siting: SitingCriteria | int,
     d__km: float,
     delta_h__meter: float,
-    climate: Climate,
+    climate: Climate | int,
     N_0: float,
     f__mhz: float,
-    pol: Polarization,
+    pol: Polarization | int,
     epsilon: float,
     sigma: float,
-    mdvar: int,
+    mdvar: MDVar | int,
     time: float,
     location: float,
     situation: float,
@@ -224,6 +239,20 @@ def predict_area(
     return_intermediate: bool = False,
 ) -> PropagationResult:
     """Area-mode propagation prediction."""
+    h_tx__meter, h_rx__meter, N_0, f__mhz, epsilon, sigma, time, location, situation = (
+        require_finite(name, value)
+        for name, value in (
+            ("h_tx__meter", h_tx__meter), ("h_rx__meter", h_rx__meter), ("N_0", N_0),
+            ("f__mhz", f__mhz), ("epsilon", epsilon), ("sigma", sigma), ("time", time),
+            ("location", location), ("situation", situation),
+        )
+    )
+    d__km = require_finite("d__km", d__km)
+    delta_h__meter = require_finite("delta_h__meter", delta_h__meter)
+    tx_siting, rx_siting = require_int("tx_siting", tx_siting), require_int("rx_siting", rx_siting)
+    climate, pol, mdvar = (
+        require_int("climate", climate), require_int("pol", pol), require_int("mdvar", mdvar)
+    )
     warnings = _validate_inputs(
         h_tx__meter,
         h_rx__meter,
@@ -306,20 +335,20 @@ def predict_area(
             mode=propmode,
         )
 
-    return PropagationResult(A__db=A__db, warnings=warnings, intermediate=inter)
+    return PropagationResult(A__db=A__db, warnings=Warnings(warnings), intermediate=inter)
 
 
 def predict_p2p_cr(
     h_tx__meter: float,
     h_rx__meter: float,
     terrain: TerrainProfile,
-    climate: Climate,
+    climate: Climate | int,
     N_0: float,
     f__mhz: float,
-    pol: Polarization,
+    pol: Polarization | int,
     epsilon: float,
     sigma: float,
-    mdvar: int,
+    mdvar: MDVar | int,
     confidence: float,
     reliability: float,
     *,
@@ -353,17 +382,17 @@ def predict_p2p_cr(
 def predict_area_cr(
     h_tx__meter: float,
     h_rx__meter: float,
-    tx_siting: SitingCriteria,
-    rx_siting: SitingCriteria,
+    tx_siting: SitingCriteria | int,
+    rx_siting: SitingCriteria | int,
     d__km: float,
     delta_h__meter: float,
-    climate: Climate,
+    climate: Climate | int,
     N_0: float,
     f__mhz: float,
-    pol: Polarization,
+    pol: Polarization | int,
     epsilon: float,
     sigma: float,
-    mdvar: int,
+    mdvar: MDVar | int,
     confidence: float,
     reliability: float,
     *,

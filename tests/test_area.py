@@ -15,7 +15,7 @@ ROOT = pathlib.Path(__file__).parent / "data" / "synthetic"
 
 def load_area_cases():
     cases = []
-    with open(ROOT / "area.csv") as f:
+    with open(ROOT / "area.csv", encoding="utf-8", newline="") as f:
         reader = csv.DictReader(f)
         for row in reader:
             cases.append({k: float(v) for k, v in row.items()})

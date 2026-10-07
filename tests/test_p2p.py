@@ -16,7 +16,7 @@ ROOT = pathlib.Path(__file__).parent / "data" / "synthetic"
 
 def load_p2p_cases():
     cases = []
-    with open(ROOT / "p2p.csv") as f:
+    with open(ROOT / "p2p.csv", encoding="utf-8", newline="") as f:
         reader = csv.DictReader(f)
         for row in reader:
             cases.append({k: float(v) for k, v in row.items()})
@@ -25,7 +25,7 @@ def load_p2p_cases():
 
 def load_pfls():
     profiles = []
-    with open(ROOT / "pfls.csv") as f:
+    with open(ROOT / "pfls.csv", encoding="utf-8", newline="") as f:
         for line in f:
             line = line.strip()
             if not line:

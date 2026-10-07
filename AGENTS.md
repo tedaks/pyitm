@@ -17,7 +17,7 @@ Requires Python ≥ 3.10 and numpy.
 ## Verification
 
 ```bash
-python3 -m pytest          # all 93 tests must pass (6 differential tests skip without ITM_REFERENCE_LIB); mypy must be clean
+python3 -m pytest          # all 172 tests must pass (6 differential tests skip without ITM_REFERENCE_LIB); mypy must be clean
 ruff check pyitm_ng/            # zero lint errors
 ```
 
@@ -66,10 +66,13 @@ The port reproduces the NTIA/itm C++ reference (master `183ad95`) operation for 
 - Where the C++ yields an IEEE ±inf / nan instead of failing (division by zero, `log(0)`), produce the same value (`_ieee_div`, `_c_max`, `iccdf`) instead of letting Python raise.
 - `tests/test_differential.py` is the arbiter. Run it with `ITM_DIFF_EXACT=1`: `A__db` must be bit-identical, not just within 0.01 dB (a reordered reduction stays well inside 0.01 dB, so only exact mode catches it). CI runs it that way. The reference is built with `-ffp-contract=off -fcx-fortran-rules` (no fused multiply-adds, complex division inline rather than libgcc's FMA-using `__divdc3`), so the C++ is plain IEEE on every architecture; keep it that way.
 
-Deliberate deviations from the C++ (the only ones). Both are input checks at an entry point where the C++ has undefined behaviour; neither changes arithmetic on valid input:
+Deliberate deviations from the C++ (the only ones). All are input checks that reject input the C++ would turn into undefined behaviour, a crash, nan, or a plausible wrong answer. None changes arithmetic on valid input (the exact differential only uses valid input and must stay bit-identical):
 
-- `predict_p2p` / `predict_p2p_cr` raise `ValueError` for a terrain profile with fewer than 2 points (the C++ reads past the array).
-- `TerrainProfile.from_pfl` clamps a PFL whose header declares more points than it contains, and logs a warning (the C++ reads out of bounds).
+- Non-finite numbers: every float argument of the four entry points and every terrain elevation must be finite, else `ValueError` naming the argument (elevations: the first offending index). The C++ lets NaN through every range comparison: `N_0=NaN` returns 99.58 dB with success.
+- Terrain: `TerrainProfile` needs at least 2 points and `resolution` finite and > 0 (resolution 0 or NaN segfaults the C++). `TerrainProfile.from_pfl` rejects a header that is not a whole number >= 1, and a PFL whose header declares more points than it holds (the C++ reads past the array). Extra trailing values are ignored, as in the C++.
+- Types: `climate`, `pol`, `mdvar`, `tx_siting`, `rx_siting` must be integers or enum members (`operator.index`), and float arguments real numbers; otherwise `TypeError`. A C caller cannot pass `mdvar=2.7`; Python must not truncate it.
+
+Validation code lives in `pyitm_ng/models.py` (`require_finite`, `require_int`, `TerrainProfile.__post_init__`) and the entry points in `itm.py`; tests in `tests/test_validation.py`.
 - Track merged upstream changes, never unmerged proposals. `.github/workflows/upstream.yml` checks NTIA/itm `master` weekly and opens an issue when it no longer equals the pin. To follow it: diff the upstream change, port it, update `ITM_COMMIT` in `tools/build_itm_reference.sh` (and the pin quoted in README, CLAUDE.md, AGENTS.md, LICENSE.md; `tests/test_docs_sync.py` checks they agree), then the bit-exact differential must pass.
 - This section is duplicated verbatim in CLAUDE.md and AGENTS.md (`tests/test_docs_sync.py` fails if they drift); edit both.
 

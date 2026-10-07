@@ -90,24 +90,9 @@ def test_predict_p2p_invalid_height():
 
 
 def test_predict_p2p_invalid_terrain():
-    # Single-point terrain should raise
-    terrain = TerrainProfile(elevations=np.array([0.0]), resolution=100.0)
-    with pytest.raises(ValueError, match="elevation points"):
-        predict_p2p(
-            h_tx__meter=10.0,
-            h_rx__meter=10.0,
-            terrain=terrain,
-            climate=Climate.CONTINENTAL_TEMPERATE,
-            N_0=301.0,
-            f__mhz=230.0,
-            pol=Polarization.VERTICAL,
-            epsilon=15.0,
-            sigma=0.008,
-            mdvar=0,
-            time=50.0,
-            location=50.0,
-            situation=50.0,
-        )
+    # A single-point terrain is rejected when the profile is built, before predict_p2p
+    with pytest.raises(ValueError, match="at least 2 elevation points"):
+        TerrainProfile(elevations=np.array([0.0]), resolution=100.0)
 
 
 def test_warn_terminal_height():

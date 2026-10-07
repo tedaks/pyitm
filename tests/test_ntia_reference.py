@@ -26,7 +26,7 @@ DATA = pathlib.Path(__file__).parent / "data" / "ntia"
 
 
 def load_cases(name):
-    with open(DATA / name) as f:
+    with open(DATA / name, encoding="utf-8", newline="") as f:
         return list(csv.DictReader(f))
 
 
@@ -35,7 +35,7 @@ def decimals(text):
 
 
 def load_pfls():
-    with open(DATA / "pfls.csv") as f:
+    with open(DATA / "pfls.csv", encoding="utf-8", newline="") as f:
         return [[float(v) for v in line.split(",")] for line in f if line.strip()]
 
 
