@@ -40,7 +40,7 @@ jobs:
           python -m venv /tmp/wheel-env
           /tmp/wheel-env/bin/pip install dist/*.whl pytest
           # outside the checkout, so the installed wheel is what gets imported
-          mkdir /tmp/wheel-check && cp -r tests p2p.csv pfls.csv area.csv /tmp/wheel-check/
+          mkdir /tmp/wheel-check && cp -r tests /tmp/wheel-check/
           cd /tmp/wheel-check && /tmp/wheel-env/bin/python -m pytest -q tests
 
       - name: Bit-exact differential against the C++ reference

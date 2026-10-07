@@ -125,8 +125,8 @@ Inspect with: `result.warnings & WARN__<flag>`
 
 | File | What it covers |
 |---|---|
-| `test_p2p.py` | p2p vs. root `p2p.csv` / `pfls.csv` (5 synthetic paths); ±0.01 dB; plus a rounding regression case |
-| `test_area.py` | Area mode vs. root `area.csv` (5 cases); ±0.01 dB |
+| `test_p2p.py` | p2p vs. `tests/data/synthetic/p2p.csv` / `pfls.csv` (5 synthetic paths); ±0.01 dB; plus a rounding regression case |
+| `test_area.py` | Area mode vs. `tests/data/synthetic/area.csv` (5 cases); ±0.01 dB |
 | `test_ntia_reference.py` | p2p and area vs. the CSVs shipped with NTIA/itm (`tests/data/ntia/`, real terrain); must round to the published value |
 | `test_differential.py` | All four entry points (p2p, area, p2p CR, area CR) vs. the C++ reference on random inputs, plus underflowing percentiles; `ITM_DIFF_EXACT=1` requires bit-identical results (CI); skips unless `ITM_REFERENCE_LIB` is set |
 | `test_itm.py` | Input validation, warning flags, intermediate values |

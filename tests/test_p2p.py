@@ -10,7 +10,8 @@ import pathlib
 import pytest
 from pyitm_ng import predict_p2p, Climate, Polarization, TerrainProfile
 
-ROOT = pathlib.Path(__file__).parent.parent
+# Synthetic paths with full-precision expected values (NTIA's own cases: tests/data/ntia/).
+ROOT = pathlib.Path(__file__).parent / "data" / "synthetic"
 
 
 def load_p2p_cases():

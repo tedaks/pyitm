@@ -9,7 +9,8 @@ import pathlib
 import pytest
 from pyitm_ng import predict_area, Climate, Polarization, SitingCriteria
 
-ROOT = pathlib.Path(__file__).parent.parent
+# Synthetic paths with full-precision expected values (NTIA's own cases: tests/data/ntia/).
+ROOT = pathlib.Path(__file__).parent / "data" / "synthetic"
 
 
 def load_area_cases():

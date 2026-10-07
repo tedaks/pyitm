@@ -47,16 +47,55 @@ jobs:
         run: |
           ruff check pyitm_ng/
           ruff check tests/
-  differential:
-    # predict_p2p / predict_area vs the NTIA/itm C++ reference on random inputs
+
+      - name: Type check (mypy --strict, config in pyproject.toml)
+        run: mypy
+
+  min-deps:
+    # Each Python against the oldest numpy the dependency floors allow (pyproject.toml).
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { python-version: "3.10", numpy: "1.21.2" }
+          - { python-version: "3.11", numpy: "1.23.2" }
+          - { python-version: "3.12", numpy: "1.26.0" }
+          - { python-version: "3.13", numpy: "2.1.0" }
+          - { python-version: "3.14", numpy: "2.3.2" }
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install the floor numpy, then the package
+        run: |
+          python -m pip install --upgrade pip
+          pip install "numpy==${{ matrix.numpy }}" pytest
+          pip install -e .
+          python -c "import numpy; assert numpy.__version__ == '${{ matrix.numpy }}', numpy.__version__"
+
+      - name: Run tests
+        run: pytest -q
+  differential:
+    # All four entry points vs the NTIA/itm C++ reference on random inputs, bit-identical
+    # (ITM_DIFF_EXACT). Both architectures: aarch64 is where FMA contraction would bite.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm]
+        python-version: ["3.10", "3.14"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
         run: |

@@ -17,7 +17,7 @@ Requires Python ≥ 3.10 and numpy.
 ## Verification
 
 ```bash
-python3 -m pytest          # all 90 tests must pass (5 differential tests skip without ITM_REFERENCE_LIB)
+python3 -m pytest          # all 93 tests must pass (6 differential tests skip without ITM_REFERENCE_LIB); mypy must be clean
 ruff check pyitm_ng/            # zero lint errors
 ```
 
@@ -40,14 +40,14 @@ pyitm_ng/
   propagation.py   — core propagation (LOS, diffraction, troposcatter, longley_rice)
   itm.py           — public API: predict_p2p, predict_area, predict_p2p_cr, predict_area_cr
 tests/
-  test_p2p.py      — integration: every row of p2p.csv against pfls.csv terrain data
-  test_area.py     — integration: every row of area.csv
+  test_p2p.py      — integration: every row of data/synthetic/p2p.csv against data/synthetic/pfls.csv
+  test_area.py     — integration: every row of data/synthetic/area.csv
   test_ntia_reference.py — NTIA/itm's own reference CSVs (tests/data/ntia/, real terrain)
   test_differential.py — random inputs vs the C++ reference (skips without ITM_REFERENCE_LIB)
 tools/
   build_itm_reference.sh — builds NTIA/itm (pinned commit) as libitm.so
   test_*.py        — unit tests per module
-p2p.csv / pfls.csv / area.csv  — reference data (do not modify)
+tests/data/synthetic/          — synthetic reference cases (do not modify)
 tests/data/ntia/               — NTIA/itm reference data, verbatim from master 183ad95 (do not modify)
 ```
 
@@ -70,7 +70,8 @@ Deliberate deviations from the C++ (the only ones). Both are input checks at an 
 
 - `predict_p2p` / `predict_p2p_cr` raise `ValueError` for a terrain profile with fewer than 2 points (the C++ reads past the array).
 - `TerrainProfile.from_pfl` clamps a PFL whose header declares more points than it contains, and logs a warning (the C++ reads out of bounds).
-- If upstream changes its arithmetic, update the pinned commit in `tools/build_itm_reference.sh` and follow it.
+- Track merged upstream changes, never unmerged proposals. `.github/workflows/upstream.yml` checks NTIA/itm `master` weekly and opens an issue when it no longer equals the pin. To follow it: diff the upstream change, port it, update `ITM_COMMIT` in `tools/build_itm_reference.sh` (and the pin quoted in README, CLAUDE.md, AGENTS.md, LICENSE.md; `tests/test_docs_sync.py` checks they agree), then the bit-exact differential must pass.
+- This section is duplicated verbatim in CLAUDE.md and AGENTS.md (`tests/test_docs_sync.py` fails if they drift); edit both.
 
 ## Conventions
 
