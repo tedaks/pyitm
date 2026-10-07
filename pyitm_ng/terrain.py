@@ -2,7 +2,7 @@
 from __future__ import annotations
 import math
 import numpy as np
-from pyitm_ng._constants import PI, H_3__meter
+from pyitm_ng._constants import PI, H_3__meter, sq
 from pyitm_ng.models import TerrainProfile
 from pyitm_ng.variability import linear_least_squares_fit
 
@@ -22,8 +22,8 @@ def find_horizons(
     xi = resolution
     d__meter = np_ * xi
 
-    z_tx = elevations[0] + h__meter[0]
-    z_rx = elevations[np_] + h__meter[1]
+    z_tx = float(elevations[0]) + h__meter[0]
+    z_rx = float(elevations[np_]) + h__meter[1]
 
     # Initial horizon angles assuming line-of-sight
     theta_hzn = [
@@ -96,7 +96,7 @@ def compute_delta_h(
             x_pos -= 1.0
             i += 1
         s_elevations.append(
-            elevations[i + 1] + (elevations[i + 1] - elevations[i]) * x_pos
+            float(elevations[i + 1]) + (float(elevations[i + 1]) - float(elevations[i])) * x_pos
         )
         x_pos += x_step
 
@@ -106,9 +106,13 @@ def compute_delta_h(
     fit_y1, fit_y2 = linear_least_squares_fit(s_arr, 1.0, 0.0, np_s)
     fit_slope = (fit_y2 - fit_y1) / np_s
 
-    # Vectorized residuals: fitted line evaluated at each point
-    fit_line = fit_y1 + fit_slope * np.arange(n)
-    diffs = s_arr - fit_line
+    # Residuals with the fitted line stepped in C++ order (ComputeDeltaH.cpp:65-70);
+    # the closed form y1 + slope*j is not bit-identical to repeated += slope.
+    diffs_list = []
+    for j in range(n):
+        diffs_list.append(float(s_arr[j]) - fit_y1)
+        fit_y1 += fit_slope
+    diffs = np.array(diffs_list)
 
     # q10: p10-th largest value (≈ 90th percentile)
     q10 = float(-np.partition(-diffs, p10 - 1)[p10 - 1])
@@ -157,8 +161,8 @@ def quick_pfl(
         fit_tx, fit_rx = linear_least_squares_fit(
             elevations, resolution, d_start__meter, d_end__meter
         )
-        h_e__meter[0] = h__meter[0] + max(elevations[0] - fit_tx, 0.0)
-        h_e__meter[1] = h__meter[1] + max(elevations[np_] - fit_rx, 0.0)
+        h_e__meter[0] = h__meter[0] + max(float(elevations[0]) - fit_tx, 0.0)
+        h_e__meter[1] = h__meter[1] + max(float(elevations[np_]) - fit_rx, 0.0)
 
         for i in range(2):
             d_hzn__meter[i] = math.sqrt(2.0 * h_e__meter[i] * a_e__meter) * math.exp(
@@ -166,7 +170,7 @@ def quick_pfl(
             )
 
         if d_hzn__meter[0] + d_hzn__meter[1] <= d__meter:
-            q = (d__meter / (d_hzn__meter[0] + d_hzn__meter[1])) ** 2
+            q = sq(d__meter / (d_hzn__meter[0] + d_hzn__meter[1]))
             for i in range(2):
                 h_e__meter[i] *= q
                 d_hzn__meter[i] = math.sqrt(
@@ -186,12 +190,12 @@ def quick_pfl(
         fit_tx, _ = linear_least_squares_fit(
             elevations, resolution, d_start__meter, 0.9 * d_hzn__meter[0]
         )
-        h_e__meter[0] = h__meter[0] + max(elevations[0] - fit_tx, 0.0)
+        h_e__meter[0] = h__meter[0] + max(float(elevations[0]) - fit_tx, 0.0)
 
         _, fit_rx = linear_least_squares_fit(
             elevations, resolution, d__meter - 0.9 * d_hzn__meter[1], d_end__meter
         )
-        h_e__meter[1] = h__meter[1] + max(elevations[np_] - fit_rx, 0.0)
+        h_e__meter[1] = h__meter[1] + max(float(elevations[np_]) - fit_rx, 0.0)
 
     return theta_hzn, d_hzn__meter, h_e__meter, delta_h__meter, d__meter
 

@@ -11,31 +11,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Breaking — renamed for PyPI:** distribution `pyitm` → `pyitm-ng` (the `pyitm` and `itm` names on PyPI belong to unrelated projects), import package `itm` → `pyitm_ng`. Update `from itm import …` to `from pyitm_ng import …`.
 - Version 0.3.0; `pyitm_ng.__version__` is the single source (read by `pyproject.toml`)
 - Package metadata for PyPI (description, readme, license file, classifiers, URLs); explicit package list so `tests/` and `tools/` are not installed
+- Ruff rule set selected explicitly (`E4`, `E7`, `E9`, `F`) so ruff releases can't change what CI enforces
+- **Bit-identical to the C++ reference.** `predict_p2p` / `predict_area` now reproduce NTIA/itm (`183ad95`) to the last bit on 50,000 random cases per mode (previously only within 0.01 dB). Results can change in the last few bits: 15,180 of those 100,000 cases moved, by at most 5.6e-12 dB. In principle a last-bit change in `h_sys` can flip an `int()` truncation and move a result by whole dB; none occurred in those runs. The remaining arithmetic deviations removed:
+  - `h_sys` mean, `linear_least_squares_fit` sums and the `compute_delta_h` fit line use the C++ sequential `+=` order instead of `np.mean` / `np.sum` / `np.dot` / closed form
+  - diffraction reference distances computed as `5.0*X` / `10.0*X` like the C++ (was `0.5*(10.0*X)`)
+  - every C++ `pow(x, 2)` is `x*x` (`_constants.sq`), which is what GCC compiles it to; Python's `x**2` calls libm `pow()` and differs in the last bit for ~0.1% of inputs
+  - numpy scalars no longer leak from the terrain array into scalar code; they turned `LineOfSightLoss`'s complex division into `np.complex128` division, a different algorithm from the C++ / CPython one
+- `M_d == M_s` in `longley_rice` yields the C++ IEEE ±inf / nan (passed through the C++ `MAX` semantics) instead of raising `ZeroDivisionError`
+- `iccdf` has no domain check, matching the C++: a time / location / situation small enough that `x / 100` underflows to 0 now gives the C++ result (the nan is discarded or propagated by the mdvar logic, as in the C++) instead of raising `ValueError`
+- `release.yml` refuses to publish unless `CHANGELOG.md` has a `## [X.Y.Z] - YYYY-MM-DD` section for the tag, and runs the bit-exact differential before publishing
 
 ### Added
 
 - `.github/workflows/release.yml`: on a `v*` tag, builds sdist + wheel, checks the tag matches the version, runs the test suite against the installed wheel, and publishes to PyPI via trusted publishing
-
-### Added
-
-- Documented fidelity policy (README, `CLAUDE.md`, `AGENTS.md`): pyitm matches the NTIA/itm C++ exactly, including the `int()` truncation sensitivity in `linear_least_squares_fit` (NTIA/itm#21); upstream rounding fixes such as NTIA/itm#22 are deliberately not adopted
-
-- `tests/test_differential.py`: compares `predict_p2p` / `predict_area` against the NTIA/itm C++ reference on random inputs (A__db within 0.01 dB, identical warnings, matching errors); skips unless `ITM_REFERENCE_LIB` is set
+- Documented fidelity policy (README, `CLAUDE.md`, `AGENTS.md`): pyitm matches the NTIA/itm C++ exactly, including the `int()` truncation sensitivity in `linear_least_squares_fit` (NTIA/itm#21); upstream rounding fixes such as NTIA/itm#22 are deliberately not adopted. The two deliberate deviations (input checks where the C++ has undefined behaviour) are listed there.
+- `tests/test_differential.py`: compares `predict_p2p` / `predict_area` against the NTIA/itm C++ reference on random inputs (A__db within 0.01 dB, identical warnings, matching errors); skips unless `ITM_REFERENCE_LIB` is set. `ITM_DIFF_EXACT=1` requires bit-identical `A__db`; CI runs it that way. Also covers underflowing percentile inputs across every mdvar.
 - `tools/build_itm_reference.sh`: builds the C++ reference at a pinned commit as `libitm.so`
 - CI `differential` job running the above on 5000 cases per mode
 - `tests/test_ntia_reference.py`: p2p and area cases from the CSVs shipped with NTIA/itm (`tests/data/ntia/`, real terrain profiles); results must round to the published values
+- `test_p2p_returns_python_floats`: guards against numpy scalars in the scalar code path
 - Python 3.14 in the CI test matrix
-
-### Changed
-
-- Ruff rule set selected explicitly (`E4`, `E7`, `E9`, `F`) so ruff releases can't change what CI enforces
 
 ### Fixed
 
 - `itm/__init__.py` docstring listed only two of the four entry points; `documentation/functions.md` claimed validation against "FORTRAN 1.2.2" (it is validated against the C++ reference) and had a stale test table; `documentation/todo.md` still listed CR mode as open
-
 - **`find_horizons`**: horizon distances are again built by sequential accumulation (`d += xi`), as in the C++ reference, instead of `i * xi`. The vectorized form introduced in 0.2.0 differs in the last bit, which `int()` truncation in `linear_least_squares_fit` can turn into a different terrain index; on affected paths `predict_p2p` was off by up to ~1.9 dB. A differential run against NTIA/itm (C++, master `183ad95`) now matches exactly on 1000 random p2p and 1000 random area cases.
 - Added `test_find_horizons_distances_match_cpp_accumulation` and `test_p2p_horizon_distance_rounding_regression` (test count 68 → 70)
+
+### Removed
+
+- Unused `logging` import and `logger` in `pyitm_ng/itm.py`
 
 ## [0.2.0] - 2026-04-19
 

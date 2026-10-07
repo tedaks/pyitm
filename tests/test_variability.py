@@ -1,6 +1,5 @@
 # tests/test_variability.py
 import math
-import pytest
 import numpy as np
 from pyitm_ng._constants import WARN__EXTREME_VARIABILITIES
 from pyitm_ng.models import Climate, MDVar
@@ -22,11 +21,10 @@ def test_iccdf_midpoint():
     assert math.isclose(iccdf(0.5), 0.0, abs_tol=1e-6)
 
 
-def test_iccdf_domain_error():
-    with pytest.raises(ValueError, match="iccdf requires"):
-        iccdf(0.0)
-    with pytest.raises(ValueError, match="iccdf requires"):
-        iccdf(1.0)
+def test_iccdf_edges_are_ieee_nan_like_cpp():
+    # C++ has no domain check: log(0) = -inf -> T_x = inf -> inf/inf = nan.
+    assert math.isnan(iccdf(0.0))
+    assert math.isnan(iccdf(1.0))
 
 
 def test_iccdf_known_values():

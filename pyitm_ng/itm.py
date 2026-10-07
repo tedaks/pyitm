@@ -1,6 +1,5 @@
 # pyitm_ng/itm.py
 from __future__ import annotations
-import logging
 from pyitm_ng._constants import (
     WARN__TX_TERMINAL_HEIGHT,
     WARN__RX_TERMINAL_HEIGHT,
@@ -19,8 +18,6 @@ from pyitm_ng.models import (
 from pyitm_ng.terrain import quick_pfl, initialize_area
 from pyitm_ng.propagation import initialize_point_to_point, longley_rice, free_space_loss
 from pyitm_ng.variability import variability
-
-logger = logging.getLogger(__name__)
 
 
 def _validate_inputs(
@@ -139,7 +136,12 @@ def predict_p2p(
 
     np_ = len(terrain.elevations) - 1
     p10 = int(0.1 * np_)
-    h_sys__meter = float(terrain.elevations[p10 : np_ - p10 + 1].mean())
+    # Sequential sum in C++ order (itm_p2p.cpp:208-211); np.mean is pairwise and
+    # differs in the last bit, which can flip the int() truncation in quick_pfl.
+    h_sys__meter = 0.0
+    for i in range(p10, np_ - p10 + 1):
+        h_sys__meter += float(terrain.elevations[i])
+    h_sys__meter = h_sys__meter / (np_ - 2 * p10 + 1)
 
     Z_g, gamma_e, N_s = initialize_point_to_point(
         f__mhz, h_sys__meter, N_0, int(pol), epsilon, sigma

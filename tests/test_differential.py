@@ -8,9 +8,13 @@ that they miss.
 Skipped unless ITM_REFERENCE_LIB points at a libitm.so built by
 tools/build_itm_reference.sh. ITM_DIFF_CASES sets the case count (default 1000).
 Tolerance: 0.01 dB; warning bitmasks and error/no-error must match exactly.
+ITM_DIFF_EXACT=1 tightens the tolerance to bit-identical A__db, which is what the
+fidelity policy in CLAUDE.md requires (a reordered reduction stays well inside
+0.01 dB, so only exact mode can catch it).
 """
 
 import ctypes
+import math
 import os
 import random
 
@@ -29,6 +33,7 @@ from pyitm_ng import (
 LIB_PATH = os.environ.get("ITM_REFERENCE_LIB")
 N_CASES = int(os.environ.get("ITM_DIFF_CASES", "1000"))
 TOL__DB = 0.01
+EXACT = os.environ.get("ITM_DIFF_EXACT", "") not in ("", "0")
 
 pytestmark = pytest.mark.skipif(
     not LIB_PATH, reason="ITM_REFERENCE_LIB not set (see tools/build_itm_reference.sh)"
@@ -96,7 +101,11 @@ def _compare(cpp, py, label, mismatches):
         if cpp_err != py_err:
             mismatches.append(f"{label}: C++ rc={rc}, Python {py!r}")
         return
-    if abs(cpp_db - py.A__db) > TOL__DB:
+    if math.isnan(cpp_db) and math.isnan(py.A__db):
+        pass  # both nan: same IEEE outcome (e.g. iccdf(0) propagated)
+    elif EXACT and cpp_db != py.A__db:
+        mismatches.append(f"{label}: C++ {cpp_db!r} dB, Python {py.A__db!r} dB (not bit-identical)")
+    elif abs(cpp_db - py.A__db) > TOL__DB:
         mismatches.append(f"{label}: C++ {cpp_db:.4f} dB, Python {py.A__db:.4f} dB")
     elif cpp_warn != py.warnings:
         mismatches.append(f"{label}: C++ warnings {cpp_warn:#x}, Python {py.warnings:#x}")
@@ -143,3 +152,36 @@ def test_area_matches_cpp_reference(lib):
             py = e
         _compare((rc, A.value, warn.value), py, f"area case {k}", mismatches)
     assert not mismatches, f"{len(mismatches)}/{N_CASES} mismatches:\n" + "\n".join(mismatches[:20])
+
+
+def _run_p2p(lib, pfl, a):
+    h_tx, h_rx, climate, N_0, f, pol, eps, sigma, mdvar, t, loc, sit = a
+    A, warn = ctypes.c_double(), ctypes.c_long()
+    rc = lib.ITM_P2P_TLS(
+        h_tx, h_rx, (ctypes.c_double * len(pfl))(*pfl), climate, N_0, f, pol, eps,
+        sigma, mdvar, t, loc, sit, ctypes.byref(A), ctypes.byref(warn),
+    )
+    try:
+        py = predict_p2p(
+            h_tx__meter=h_tx, h_rx__meter=h_rx, terrain=TerrainProfile.from_pfl(pfl),
+            climate=Climate(climate), N_0=N_0, f__mhz=f, pol=Polarization(pol),
+            epsilon=eps, sigma=sigma, mdvar=mdvar, time=t, location=loc, situation=sit,
+        )
+    except ValueError as e:
+        py = e
+    return (rc, A.value, warn.value), py
+
+
+def test_underflowing_percentiles_match_cpp(lib):
+    """time/location/situation so small that x / 100 underflows to 0: the C++ has no
+    domain check, iccdf(0) is nan, and Variability either discards it (mdvar picks
+    another percentile) or propagates it. Python must do exactly the same, not raise."""
+    mismatches = []
+    pfl = [10.0, 100.0] + [float(10 * i % 37) for i in range(11)]
+    for mdvar in MDVARS:
+        for t, loc, sit in [(5e-324, 50.0, 50.0), (50.0, 5e-324, 50.0), (50.0, 50.0, 5e-324)]:
+            a = [10.0, 10.0, 5, 301.0, 3000.0, 1, 15.0, 0.005, mdvar, t, loc, sit]
+            cpp, py = _run_p2p(lib, pfl, a)
+            _compare(cpp, py, f"p2p mdvar={mdvar} t={t} l={loc} s={sit}", mismatches)
+    assert not mismatches, "\n".join(mismatches)
+

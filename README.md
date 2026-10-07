@@ -96,7 +96,7 @@ ruff check pyitm_ng/ tests/
 To also compare against the NTIA/itm C++ reference on random inputs (Linux, needs g++):
 
 ```bash
-ITM_REFERENCE_LIB=$(tools/build_itm_reference.sh) python3 -m pytest tests/test_differential.py
+ITM_DIFF_EXACT=1 ITM_REFERENCE_LIB=$(tools/build_itm_reference.sh) python3 -m pytest tests/test_differential.py
 ```
 
 ## Numerical fidelity

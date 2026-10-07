@@ -4,6 +4,7 @@ import math
 import numpy as np
 
 from pyitm_ng._constants import (
+    sq,
     a_9000__meter,
     WN_DENOM,
     THIRD,
@@ -45,15 +46,17 @@ def iccdf(q: float) -> float:
     Input q is a probability in (0, 1).
     Returns Q^-1(q): positive for q < 0.5, negative for q > 0.5.
     Error |epsilon(p)| < 4.5e-4.
-    Raises ValueError if q <= 0 or q >= 1.
+    No domain check, as in the C++: q == 0 (reachable when time/location/situation
+    is small enough that x / 100 underflows) gives log(0) = -inf and returns nan,
+    which Variability() then discards or propagates exactly as the C++ does.
     """
-    if not 0.0 < q < 1.0:
-        raise ValueError(f"iccdf requires 0 < q < 1, got {q}")
     C_0, C_1, C_2 = 2.515516, 0.802853, 0.010328
     D_1, D_2, D_3 = 1.432788, 0.189269, 0.001308
 
     x = q if q <= 0.5 else 1.0 - q
-    T_x = math.sqrt(-2.0 * math.log(x))
+    # C log(): log(0) = -inf, log(<0) = nan; math.log raises on both.
+    log_x = math.log(x) if x > 0.0 else (-math.inf if x == 0.0 else math.nan)
+    T_x = math.sqrt(-2.0 * log_x) if log_x <= 0.0 else math.nan
     zeta_x = ((C_2 * T_x + C_1) * T_x + C_0) / (
         ((D_3 * T_x + D_2) * T_x + D_1) * T_x + 1.0
     )
@@ -99,18 +102,18 @@ def linear_least_squares_fit(
     mid_shifted_index = -0.5 * x_length
     mid_shifted_end = i_end + mid_shifted_index
 
-    sum_y = 0.5 * (elevations[i_start] + elevations[i_end])
-    scaled_sum_y = 0.5 * (elevations[i_start] - elevations[i_end]) * mid_shifted_index
+    sum_y = 0.5 * (float(elevations[i_start]) + float(elevations[i_end]))
+    scaled_sum_y = 0.5 * (float(elevations[i_start]) - float(elevations[i_end])) * mid_shifted_index
 
-    # Vectorized accumulation: loop iterations 2..x_length correspond to
-    # indices (i_start+1) through (i_start + x_length - 1), with mid-shifted
-    # indices starting at (-0.5*x_length + 1) and incrementing by 1 each step.
-    n_inner = int(x_length) - 1
-    if n_inner > 0:
-        inner_elevs = elevations[i_start + 1 : i_start + 1 + n_inner]
-        inner_offsets = np.arange(-0.5 * x_length + 1.0, -0.5 * x_length + 1.0 + n_inner)
-        sum_y += float(np.sum(inner_elevs))
-        scaled_sum_y += float(np.dot(inner_elevs, inner_offsets))
+    # Sequential accumulation in C++ order (LinearLeastSquaresFit.cpp); np.sum /
+    # np.dot reorder the additions and are not bit-identical.
+    i = 2
+    while i <= x_length:
+        i_start += 1
+        mid_shifted_index += 1.0
+        sum_y += float(elevations[i_start])
+        scaled_sum_y += float(elevations[i_start]) * mid_shifted_index
+        i += 1
 
     sum_y /= x_length
     scaled_sum_y = scaled_sum_y * 12.0 / ((x_length * x_length + 2.0) * x_length)
@@ -131,7 +134,7 @@ def curve(
 ) -> float:
     """Curve helper for TN101v2 Eqn III.69 & III.70."""
     r = d_e__meter / x1
-    return (c1 + c2 / (1.0 + ((d_e__meter - x2) / x3) ** 2)) * (r * r) / (1.0 + r * r)
+    return (c1 + c2 / (1.0 + sq((d_e__meter - x2) / x3))) * (r * r) / (1.0 + r * r)
 
 
 def variability(
@@ -211,8 +214,8 @@ def variability(
     Y_L = sigma_L * z_L
 
     q = math.log(0.133 * wn)
-    g_minus = _BFM1[ci] + _BFM2[ci] / (pow(_BFM3[ci] * q, 2) + 1.0)
-    g_plus = _BFP1[ci] + _BFP2[ci] / (pow(_BFP3[ci] * q, 2) + 1.0)
+    g_minus = _BFM1[ci] + _BFM2[ci] / (sq(_BFM3[ci] * q) + 1.0)
+    g_plus = _BFP1[ci] + _BFP2[ci] / (sq(_BFP3[ci] * q) + 1.0)
 
     sigma_T_minus = (
         curve(_BSM1[ci], _BSM2[ci], _XSM1[ci], _XSM2[ci], _XSM3[ci], d_e__meter)
@@ -234,16 +237,16 @@ def variability(
         sigma_T = sigma_TD + tgtd / z_T
     Y_T = sigma_T * z_T
 
-    Y_S_temp = sigma_S**2 + Y_T**2 / (7.8 + z_S**2) + Y_L**2 / (24.0 + z_S**2)
+    Y_S_temp = sq(sigma_S) + sq(Y_T) / (7.8 + sq(z_S)) + sq(Y_L) / (24.0 + sq(z_S))
 
     if mdvar_internal == SINGLE_MESSAGE:
         Y_R = 0.0
-        Y_S = math.sqrt(sigma_T**2 + sigma_L**2 + Y_S_temp) * z_S
+        Y_S = math.sqrt(sq(sigma_T) + sq(sigma_L) + Y_S_temp) * z_S
     elif mdvar_internal == ACCIDENTAL:
         Y_R = Y_T
-        Y_S = math.sqrt(sigma_L**2 + Y_S_temp) * z_S
+        Y_S = math.sqrt(sq(sigma_L) + Y_S_temp) * z_S
     elif mdvar_internal == MOBILE:
-        Y_R = math.sqrt(sigma_T**2 + sigma_L**2) * z_T
+        Y_R = math.sqrt(sq(sigma_T) + sq(sigma_L)) * z_T
         Y_S = math.sqrt(Y_S_temp) * z_S
     else:
         Y_R = Y_T + Y_L
