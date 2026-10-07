@@ -1,12 +1,42 @@
 # pyitm_ng/models.py
 from __future__ import annotations
-import logging
+import math
+import numbers
+import operator
 from dataclasses import dataclass
 from enum import IntFlag, IntEnum
+from typing import Any
 import numpy as np
 import numpy.typing as npt
 
-logger = logging.getLogger(__name__)
+
+def require_finite(name: str, value: Any) -> float:
+    """Return value as float; TypeError if not a real number, ValueError if nan/inf.
+
+    Deliberate deviation from the C++, which has no such check: there NaN slips through
+    every range comparison and yields nan, a plausible wrong answer, or a crash.
+    """
+    if isinstance(value, bool) or not isinstance(value, numbers.Real):
+        raise TypeError(f"{name} must be a real number, got {type(value).__name__} {value!r}")
+    v = float(value)
+    if not math.isfinite(v):
+        raise ValueError(f"{name}={v} must be finite")
+    return v
+
+
+def require_int(name: str, value: Any) -> int:
+    """Return value as int; TypeError unless it is an integer (int, IntEnum, numpy int).
+
+    Rejects 2.7 or "2" instead of truncating them, as int() would.
+    """
+    if isinstance(value, bool):
+        raise TypeError(f"{name} must be an integer or enum member, got bool {value!r}")
+    try:
+        return operator.index(value)
+    except TypeError:
+        raise TypeError(
+            f"{name} must be an integer or enum member, got {type(value).__name__} {value!r}"
+        ) from None
 
 
 class Climate(IntEnum):
@@ -62,12 +92,45 @@ class Warnings(IntFlag):
     NONE = 0
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class TerrainProfile:
-    """Terrain elevation profile in PFL format."""
+    """Terrain elevation profile in PFL format.
+
+    Validated on construction: at least 2 elevation points, every elevation finite
+    (DEM no-data cells often arrive as NaN; fill or drop them first), resolution
+    finite and > 0. The elevations are stored as a read-only float64 copy, so the
+    profile is immutable; it compares and hashes by value.
+    """
 
     elevations: npt.NDArray[np.float64]
     resolution: float
+
+    def __post_init__(self) -> None:
+        elevations = np.array(self.elevations, dtype=np.float64)  # copy, never a view
+        if elevations.ndim != 1 or elevations.size < 2:
+            raise ValueError(
+                f"terrain must be a 1-D profile of at least 2 elevation points, got shape {elevations.shape}"
+            )
+        bad = np.flatnonzero(~np.isfinite(elevations))
+        if bad.size:
+            raise ValueError(
+                f"terrain elevations must be finite: {bad.size} non-finite value(s), "
+                f"first at index {int(bad[0])} ({elevations[bad[0]]}); fill DEM no-data cells first"
+            )
+        resolution = require_finite("resolution", self.resolution)
+        if resolution <= 0.0:
+            raise ValueError(f"resolution={resolution} must be > 0")
+        elevations.setflags(write=False)
+        object.__setattr__(self, "elevations", elevations)
+        object.__setattr__(self, "resolution", resolution)
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, TerrainProfile):
+            return NotImplemented
+        return self.resolution == other.resolution and np.array_equal(self.elevations, other.elevations)
+
+    def __hash__(self) -> int:
+        return hash((self.resolution, self.elevations.tobytes()))
 
     @classmethod
     def from_pfl(cls, pfl: list[float]) -> TerrainProfile:
@@ -81,26 +144,20 @@ class TerrainProfile:
             raise ValueError(
                 f"PFL array must have at least 3 elements (np, resolution, one elevation), got {len(pfl)}"
             )
-        np_ = int(pfl[0])
-        if np_ < 1:
-            raise ValueError(f"PFL interval count must be >= 1, got {np_}")
+        header = require_finite("PFL interval count pfl[0]", pfl[0])
+        if header != int(header) or header < 1:
+            raise ValueError(f"PFL interval count pfl[0]={header} must be a whole number >= 1")
+        np_ = int(header)
         available = len(pfl) - 2
-        if available < 2:
+        if available < np_ + 1:
+            # The C++ would read past the end of the array; computing a shorter path
+            # than the caller described is not an answer for their link either.
             raise ValueError(
-                f"pfl has only {available} elevation values, need at least 2 for 1 interval"
+                f"PFL header declares {np_} intervals ({np_ + 1} elevation points) "
+                f"but only {available} values follow"
             )
-        resolution = float(pfl[1])
-        if available >= np_ + 1:
-            elevations = np.asarray(pfl[2 : np_ + 3], dtype=float)
-        else:
-            actual_np = min(np_, available - 1)
-            elevations = np.asarray(pfl[2 : 2 + actual_np + 1], dtype=float)
-            logger.warning(
-                "PFL data truncated: header declares %d elevation intervals "
-                "(%d points) but only %d values available; using %d points",
-                np_, np_ + 1, available, actual_np + 1,
-            )
-        return cls(elevations=elevations, resolution=resolution)
+        # Values beyond np_ + 1 are ignored, as in the C++.
+        return cls(elevations=np.asarray(pfl[2 : np_ + 3], dtype=float), resolution=pfl[1])
 
 
 @dataclass(frozen=True)
@@ -119,5 +176,5 @@ class IntermediateValues:
 @dataclass(frozen=True)
 class PropagationResult:
     A__db: float
-    warnings: int
+    warnings: Warnings
     intermediate: IntermediateValues | None = None

@@ -88,7 +88,16 @@ print(f"Propagation loss: {result.A__db:.2f} dB")
 | `predict_area` | Area-mode propagation with TLS variability |
 | `predict_area_cr` | Area-mode propagation with CR variability |
 
-All functions return a `PropagationResult` with `.A__db` (propagation loss in dB) and `.warnings` (bitmask of warnings). Set `return_intermediate=True` to get `IntermediateValues` with detailed path parameters.
+All functions return a `PropagationResult` with `.A__db` (propagation loss in dB) and `.warnings`, a `Warnings` flag (an `int` subclass, so bit tests keep working): `Warnings.RX_TERMINAL_HEIGHT in result.warnings`. Set `return_intermediate=True` to get `IntermediateValues` with detailed path parameters.
+
+### Input validation
+
+Invalid input raises instead of producing a number:
+
+- `ValueError` for out-of-range values (the C++ ranges), for any NaN or infinity (including terrain elevations: the message gives the first bad index, so fill DEM no-data cells before building the profile), for a terrain resolution <= 0, and for a PFL whose header declares more points than it holds.
+- `TypeError` for wrong types: `climate`, `pol`, `mdvar` and the siting criteria take enum members or integers (`mdvar=2.7` is rejected, not truncated).
+
+The C++ has none of the non-finite checks: there NaN slips through every range test and returns nan, a plausible wrong answer, or crashes. `TerrainProfile` is immutable (it keeps a read-only copy of the elevations) and compares and hashes by value.
 
 See docstrings for full parameter documentation.
 

@@ -19,9 +19,10 @@ master `183ad95bd813a8be11009df396e1c631356864b2`, 2024-09-24). Changes, from
 
 - translated from C++ to Python (pyitm-ng 0.1.0, 2026-04-15) with a Pythonic API
   (keyword arguments, enums, dataclass results, exceptions for input errors);
-- two input checks the C++ lacks, at entry points where it has undefined behaviour
-  (a terrain profile with fewer than 2 points; a PFL whose header declares more
-  points than it holds);
+- input validation the C++ lacks, rejecting with an error what the C++ turns into
+  undefined behaviour, a crash, nan or a wrong answer: non-finite numbers, terrain
+  with fewer than 2 points or a resolution <= 0, a PFL whose header declares more
+  points than it holds, and non-integer enum arguments;
 - otherwise the arithmetic is unchanged: results are bit-identical to the C++
   evaluated in plain IEEE arithmetic, verified on Linux x86_64 and aarch64 (see
   README, "Numerical fidelity").
